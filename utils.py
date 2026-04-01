@@ -136,6 +136,7 @@ def RNAfold(
     temperature: float = 37.0,
     maxBPspan: int = 0,
     commands_file: str = "",
+    num_threads: int = 8,
 ) -> list[tuple[str, float]]:
     """Fold sequences with ViennaRNA ``RNAfold`` and return structures and MFEs.
 
@@ -180,6 +181,8 @@ def RNAfold(
         command.append(f"--commands={commands_file}")
     if maxBPspan:
         command.append(f"--maxBPspan={maxBPspan}")
+    if num_threads > 1:
+        command.append(f"--jobs={num_threads}")
 
     try:
         result = subprocess.run(
@@ -254,6 +257,7 @@ def rna_fold_structs(
     rnafold_bin: str = "RNAfold",
     temperature: float = 37.0,
     commands_file: str = "",
+    num_threads: int = 8,
 ) -> tuple[list[str], np.ndarray]:
     """Fold a batch of sequences and return structures plus MFEs.
 
@@ -274,6 +278,7 @@ def rna_fold_structs(
         temperature=temperature,
         maxBPspan=maxBPspan,
         commands_file=commands_file,
+        num_threads=num_threads,
     )
     structures = [structure for structure, _ in struct_mfes]
     mfes = np.asarray([mfe for _, mfe in struct_mfes], dtype=np.float32)
@@ -286,6 +291,7 @@ def compute_structure(
     rnafold_bin: str = "RNAfold",
     temperature: float = 37.0,
     commands_file: str = "",
+    num_threads: int = 8,
 ) -> tuple[np.ndarray, list[str], np.ndarray]:
     """Compute one-hot structure features and MFEs for input sequences.
 
@@ -306,6 +312,7 @@ def compute_structure(
         rnafold_bin=rnafold_bin,
         temperature=temperature,
         commands_file=commands_file,
+        num_threads=num_threads,
     )
     struct_oh = np.asarray(
         [folding_to_vector(structure) for structure in structures],
@@ -436,6 +443,7 @@ def make_dataset_dict(
     temperature: float = 37.0,
     maxBPspan: int = 0,
     commands_file: str = "",
+    num_threads: int = 8,
 ) -> dict[str, Any]:
     """Create a model-ready dataset dictionary from unflanked exon sequences.
 
@@ -466,6 +474,7 @@ def make_dataset_dict(
         rnafold_bin=rnafold_bin,
         temperature=temperature,
         commands_file=commands_file,
+        num_threads=num_threads,
     )
     wobbles = compute_wobbles(model_sequences, structures)
 
@@ -490,6 +499,7 @@ def dataframe_to_dataset(
     temperature: float = 37.0,
     maxBPspan: int = 0,
     commands_file: str = "",
+    num_threads: int = 8,
 ) -> dict[str, Any]:
     """Convert a sequence dataframe into a model-ready dataset dictionary.
 
@@ -520,13 +530,14 @@ def dataframe_to_dataset(
         temperature=temperature,
         maxBPspan=maxBPspan,
         commands_file=commands_file,
+        num_threads=num_threads,
     )
     dataset["sequence_column"] = np.asarray(sequence_column, dtype=str)
 
     for column in df.columns:
         if column == sequence_column:
             continue
-        dataset[f"meta__{column}"] = _normalize_metadata_value(df[column])
+        dataset[f"metadata_{column}"] = _normalize_metadata_value(df[column])
 
     return dataset
 
@@ -557,6 +568,7 @@ def create_input_data(
     temperature: float = 37.0,
     maxBPspan: int = 0,
     commands_file: str = "",
+    num_threads: int = 8,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Create model-ready sequence, structure, and wobble inputs.
 
@@ -585,6 +597,7 @@ def create_input_data(
         temperature=temperature,
         maxBPspan=maxBPspan,
         commands_file=commands_file,
+        num_threads=num_threads,
     )
     if return_mfe:
         return (

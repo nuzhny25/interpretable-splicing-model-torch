@@ -67,6 +67,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional ViennaRNA commands file passed through to RNAfold.",
     )
+    parser.add_argument(
+        "--num-threads",
+        default=8,
+        type=int,
+        help="Number of threads to use for ViennaRNA.",
+    )
     return parser
 
 
@@ -83,6 +89,7 @@ def main() -> None:
         temperature=args.temperature,
         maxBPspan=args.max_bp_span,
         commands_file=args.commands_file,
+        num_threads=args.num_threads,
     )
     output_path = save_dataset_npz(dataset, args.output_path)
 

@@ -48,48 +48,9 @@ That means a 70 nt exon becomes a 90 nt model input.
 
 If you do not want flanks added, use `add_flanks=False` in Python or `--no-flanks` in the CLI. In that case, `L` is just the input sequence length.
 
-### Python API
+### Dataset Preparation
 
-Use `utils.dataframe_to_dataset()` to convert a pandas dataframe into a dataset dictionary of NumPy arrays:
-
-```python
-import pandas as pd
-
-from utils import dataframe_to_dataset
-
-df = pd.DataFrame(
-    {
-        "exon": ["A" * 70, "C" * 70],
-        "sample_id": ["s1", "s2"],
-    }
-)
-
-dataset = dataframe_to_dataset(df)
-
-print(dataset["seq_oh"].shape)      # (2, 4, 90)
-print(dataset["struct_oh"].shape)   # (2, 3, 90)
-print(dataset["wobbles"].shape)     # (2, 1, 90)
-print(dataset["structure"].shape)   # (2,)
-print(dataset["mfe"].shape)         # (2,)
-```
-
-`dataset["seq_oh"]`, `dataset["struct_oh"]`, and `dataset["wobbles"]` are NumPy arrays. Convert them to torch tensors before passing them into `PNASModel`. Extra dataframe columns are stored as metadata keys like `meta__sample_id`.
-
-If your sequence column is not named `exon`:
-
-```python
-dataset = dataframe_to_dataset(df, sequence_column="sequence")
-```
-
-If `RNAfold` is not on `PATH`:
-
-```python
-dataset = dataframe_to_dataset(df, rnafold_bin="/path/to/RNAfold")
-```
-
-### CLI
-
-You can also prepare a dataset directly from a CSV:
+You can prepare a dataset directly from a CSV file containing an 'exon' column.
 
 ```bash
 python prepare_dataset.py \
@@ -106,11 +67,27 @@ python prepare_dataset.py \
   --sequence-column sequence
 ```
 
-Optional RNAfold-related arguments: `--rnafold-bin`, `--temperature`, `--max-bp-span`, and `--commands-file`.
+Optional RNAfold-related arguments: `--rnafold-bin`, `--temperature`, `--max-bp-span`, `--num-threads` and `--commands-file`.
 
-The output is a compressed `.npz` archive containing the same dataset dictionary fields returned by the Python API.
+The output is a compressed `.npz` archive containing the following keys (stored as numpy arrays). Specifically, it contains the fields `seq_oh` for one-hot-encoded sequences, `struct_oh` for one-hot-encoded structures, `wobble` for wobble-pair arrays. All additional dataframe columns are stored with the `"metadata_"` prefix as (e.g. `dataset["metadata_PSI"]`).
 
-## Running the Model
+## Python Workflow
+
+### Load dataset
+
+```python
+import numpy as np
+
+dataset = np.load("your_dataset_path.npz")
+
+print(dataset["seq_oh"].shape)      # (2, 4, 90)
+print(dataset["struct_oh"].shape)   # (2, 3, 90)
+print(dataset["wobbles"].shape)     # (2, 1, 90)
+print(dataset["structure"].shape)   # (2,)
+print(dataset["mfe"].shape)         # (2,)
+```
+
+### Running the Model
 
 After preprocessing, convert the NumPy arrays to torch tensors and pass them into `PNASModel.forward()`:
 
@@ -157,6 +134,10 @@ sr_balance = model.compute_sr_balance(x_seq, agg="mean")
 - The default public preprocessing path assumes unflanked exon input and adds model flanks automatically.
 - `load_state_dict()` in `PNASModel` resamples position-bias tensors when checkpoint and runtime input lengths differ.
 - `load_weights_from_dict()` is available for loading weights converted from an external TensorFlow/Keras export format.
+
+## Data
+
+The original training and test data from the paper are provided in both `.csv` form and processed `.npz` form under the `data` directory.
 
 ## Citation
 
