@@ -1,6 +1,7 @@
 PyTorch implementation of pre-trained splicing model from "Deciphering RNA splicing logic with interpretable machine learning" (Liao et al., 2023). The manuscript is available [here](https://www.pnas.org/doi/abs/10.1073/pnas.2221165120). Train, test sequences are provided in the `data` directory.
 
-## Requirements
+## Setup
+### Requirements
 
 Python-side requirements:
 
@@ -19,11 +20,13 @@ System requirement:
 
 - ViennaRNA `RNAfold`
 
-## RNAfold Installation
+### RNAfold Installation
 
 See the [ViennaRNA GitHub](https://github.com/ViennaRNA/ViennaRNA) for instructions for installing RNAFold. The preprocessing code expects `RNAfold` to be available on `PATH`, unless you pass an explicit `rnafold_bin` path.
 
-## Expected Input Shapes
+
+## Usage
+### Expected Input Shapes
 
 The model expects channel-first inputs throughout:
 
@@ -33,7 +36,7 @@ The model expects channel-first inputs throughout:
 
 In this repository, preprocessing utilities already return arrays in those shapes.
 
-## From CSV to Full Inputs
+### From CSV to Full Inputs
 
 The canonical input sequence is an unflanked exon in a column named `exon`. Other columns are allowed and are preserved as metadata in the output dataset. If your sequence column has a different name, pass it explicitly.
 
@@ -46,7 +49,7 @@ That means a 70 nt exon becomes a 90 nt model input.
 
 If you do not want flanks added, use `add_flanks=False` in Python or `--no-flanks` in the CLI. In that case, `L` is just the input sequence length.
 
-### Python API
+#### Python API
 
 Use `utils.dataframe_to_dataset()` to convert a pandas dataframe into a dataset dictionary of NumPy arrays:
 
@@ -85,7 +88,7 @@ If `RNAfold` is not on `PATH`:
 dataset = dataframe_to_dataset(df, rnafold_bin="/path/to/RNAfold")
 ```
 
-### CLI
+#### CLI
 
 You can also prepare a dataset directly from a CSV:
 
@@ -108,7 +111,7 @@ Optional RNAfold-related arguments: `--rnafold-bin`, `--temperature`, `--max-bp-
 
 The output is a compressed `.npz` archive containing the same dataset dictionary fields returned by the Python API.
 
-## Running the Model
+### Running the Model
 
 After preprocessing, convert the NumPy arrays to torch tensors and pass them into `PNASModel.forward()`:
 
@@ -135,7 +138,7 @@ with torch.no_grad():
     prediction = model(x_seq, x_struct, x_wobble)
 ```
 
-## Sequence-Only Analysis
+### Sequence-Only Analysis
 
 To inspect sequence properties such as **SR Balance** and **latent sequence activation**, you can use the model methods `compute_sr_balance`, `compute_sequence_activations()`.
 
@@ -150,12 +153,12 @@ a_incl, a_skip = model.compute_sequence_activations(x_seq, agg="mean")
 sr_balance = model.compute_sr_balance(x_seq, agg="mean")
 ```
 
-## Notes
+### Notes
 
 - The default public preprocessing path assumes unflanked exon input and adds model flanks automatically.
 - `load_state_dict()` in `PNASModel` resamples position-bias tensors when checkpoint and runtime input lengths differ.
 - `load_weights_from_dict()` is available for loading weights converted from an external TensorFlow/Keras export format.
 
-## Citation
+### Citation
 
 Please cite: Liao, Susan E., Mukund Sudarshan, and Oded Regev. "Deciphering RNA splicing logic with interpretable machine learning." Proceedings of the National Academy of Sciences 120.41 (2023): e2221165120.
