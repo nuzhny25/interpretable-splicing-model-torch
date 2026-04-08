@@ -35,7 +35,6 @@ mouse_sr = sr_balance_list[1]
 human_incl_mean = a_incl_list[0].mean(axis=1)
 mouse_incl_mean = a_incl_list[1].mean(axis=1)
 
-# Assuming you used a step_size of 10 for your sliding window
 step_size = 10 
 
 # Create x-axis positions for the plots (Position in the transcript)
