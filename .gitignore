@@ -206,3 +206,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 pnas_split_data/*.npz
+/ViennaRNA
