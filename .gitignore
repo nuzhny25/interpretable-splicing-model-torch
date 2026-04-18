@@ -208,3 +208,5 @@ __marimo__/
 pnas_split_data/*.npz
 /ViennaRNA
 /.DS_Store
+
+.DS_Store
