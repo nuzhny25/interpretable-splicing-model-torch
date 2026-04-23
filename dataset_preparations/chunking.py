@@ -1,25 +1,30 @@
 import pandas as pd
 
-paths = ["data/human_malat1.txt", "data/mouse_malat1.txt"]
-names = ["data/human_malat1_chunks.csv", "data/mouse_malat1_chunks.csv"]
+from maf_processing import SPECIES
 
-for index, path in enumerate(paths):
+DATA_DIR = "../data/multiz100"
+WINDOW_SIZE = 70
+STEP_SIZE = 10
 
-    with open(path, "r") as file:
-        malat1_seq = file.read()
 
-    malat1_seq = malat1_seq.replace("\n", "")
-
-    window_size = 70
-    step_size = 10
-
-    chunks = []
-    positions = []
-
-    for i in range(0, len(malat1_seq) - window_size + 1, step_size):
-        chunk = malat1_seq[i : i + window_size]
-        chunks.append(chunk)
+def chunk_sequence(seq, window_size, step_size):
+    chunks, positions = [], []
+    for i in range(0, len(seq) - window_size + 1, step_size):
+        chunks.append(seq[i : i + window_size])
         positions.append(i)
+    return chunks, positions
 
-    df = pd.DataFrame({"exon": chunks})
-    df.to_csv(names[index], index=False)
+
+for name in SPECIES:
+    input_path = f"{DATA_DIR}/{name}_malat1.txt"
+    output_path = f"{DATA_DIR}/{name}_malat1_chunks.csv"
+
+    try:
+        with open(input_path, "r") as file:
+            seq = file.read().replace("\n", "")
+    except FileNotFoundError:
+        print(f"Skipping {name}: {input_path} not found")
+        continue
+
+    chunks, positions = chunk_sequence(seq, WINDOW_SIZE, STEP_SIZE)
+    pd.DataFrame({"exon": chunks}).to_csv(output_path, index=False)
