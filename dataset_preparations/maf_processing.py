@@ -13,6 +13,7 @@ I can find more via this link: https://genome.ucsc.edu/cgi-bin/hgc?db=hg38&c=chr
 
 """
 
+# Some species that I decided to analyse
 SPECIES = {
     "human": "hg38.chr11",
     "chimp": "panTro4.chr11",
@@ -30,12 +31,14 @@ def main():
 
     sequences = {name: "" for name in SPECIES}
 
+    # extracting the aligned sequences
     for alignment in alignments:
         for line in alignment:
             for name, maf_id in SPECIES.items():
                 if line.id == maf_id:
                     sequences[name] += str(line.seq)
 
+    # removing alignment from the sequences and saving them in files s.t. I can run the model on it
     for name, seq in sequences.items():
         seq = clean_str(seq)
         if seq:
