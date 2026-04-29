@@ -1,6 +1,7 @@
 import json
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 import sys, os
 
@@ -11,6 +12,9 @@ from dataset_preparations.maf_processing import SPECIES
 DATA_DIR = os.path.join(ROOT, "data/multiz100")
 MAPPING_PATH = os.path.join(
     os.path.dirname(__file__), "../creating_alignment/alignment_mapping.json"
+)
+SEQ_CONS_PATH = os.path.join(
+    os.path.dirname(__file__), "../sequence_conservation/sequence_conservation.json"
 )
 WINDOW_SIZE = 70
 STEP_SIZE = 10
@@ -69,6 +73,11 @@ def conservation_score(species_dict, grid):
 with open(MAPPING_PATH) as f:
     mapping = json.load(f)
 
+with open(SEQ_CONS_PATH) as f:
+    seq_cons_data = json.load(f)
+seq_cons_pos = np.array(seq_cons_data["positions"])
+seq_cons_vals = np.array(seq_cons_data["conservation"])
+
 data = np.load(os.path.join(DATA_DIR, "embeddings.npz"))
 sr_tracks, incl_tracks, excl_tracks = load_aligned_tracks(data, mapping)
 
@@ -82,13 +91,13 @@ colors = cm.tab10(np.linspace(0, 0.9, len(sr_tracks)))
 species_colors = dict(zip(sr_tracks.keys(), colors))
 
 fig, axes = plt.subplots(
-    6,
+    7,
     1,
-    figsize=(16, 20),
+    figsize=(16, 23),
     sharex=True,
-    gridspec_kw={"height_ratios": [3, 1, 3, 1, 3, 1]},
+    gridspec_kw={"height_ratios": [3, 1, 3, 1, 3, 1, 1]},
 )
-ax_sr, ax_sr_cons, ax_incl, ax_incl_cons, ax_excl, ax_excl_cons = axes
+ax_sr, ax_sr_cons, ax_incl, ax_incl_cons, ax_excl, ax_excl_cons, ax_seq_cons = axes
 
 # --- SR Balance ---
 for name, (pos, vals) in sr_tracks.items():
@@ -153,7 +162,17 @@ ax_excl_cons.fill_between(grid, excl_cons, alpha=0.75, color="darkorange")
 ax_excl_cons.set_ylim(0, 1)
 ax_excl_cons.set_ylabel("Conservation\n(Exclusion)", fontsize=8)
 ax_excl_cons.set_yticks([0, 0.5, 1])
-ax_excl_cons.set_xlabel("Aligned Nucleotide Position")
+# --- Sequence Conservation ---
+seq_cons_p, seq_cons_v = break_at_gaps(seq_cons_pos, seq_cons_vals)
+ax_seq_cons.fill_between(seq_cons_p, seq_cons_v, alpha=0.75, color="seagreen")
+ax_seq_cons.set_ylim(0, 100)
+ax_seq_cons.set_ylabel("Sequence\nConservation (%)", fontsize=8)
+ax_seq_cons.set_yticks([0, 50, 100])
+ax_seq_cons.set_xlabel("Aligned Nucleotide Position")
+ax_seq_cons.xaxis.set_major_locator(ticker.MultipleLocator(1000))
+ax_seq_cons.xaxis.set_minor_locator(ticker.MultipleLocator(100))
+ax_seq_cons.tick_params(axis="x", which="minor", length=3)
+ax_seq_cons.tick_params(axis="x", which="major", length=6)
 
 plt.tight_layout()
 plt.savefig(

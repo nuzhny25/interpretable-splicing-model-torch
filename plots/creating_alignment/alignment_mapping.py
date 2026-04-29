@@ -38,6 +38,8 @@ def main():
     mask = ~np.all(matrix_np == "-", axis=1)
     matrix_np = matrix_np[mask]
 
+    np.save(os.path.join(ROOT, "data/multiz100/alignment_matrix.npy"), matrix_np)
+
     print(matrix_np.shape)
 
     # Iterate through every aligned sequence and find the location for every nucleotide
