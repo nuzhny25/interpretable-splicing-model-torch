@@ -1,9 +1,11 @@
 import json
+import os
+import sys
+
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
-import sys, os
 
 ROOT = os.path.join(os.path.dirname(__file__), "../..")
 sys.path.insert(0, ROOT)
@@ -18,7 +20,6 @@ SEQ_CONS_PATH = os.path.join(
 )
 WINDOW_SIZE = 70
 STEP_SIZE = 10
-CONSERVATION_GRID = 1000
 
 
 def load_aligned_tracks(data, mapping):
@@ -62,14 +63,7 @@ def break_at_gaps(pos, vals, gap_factor=5):
     return np.array(new_pos, dtype=float), np.array(new_vals, dtype=float)
 
 
-def conservation_score(species_dict, grid):
-    """1 - normalised std across species; high = conserved."""
-    interp_vals = [np.interp(grid, pos, vals) for pos, vals in species_dict.values()]
-    std = np.nanstd(np.array(interp_vals), axis=0)
-    std_norm = (std - std.min()) / (std.max() - std.min() + 1e-8)
-    return 1.0 - std_norm
-
-
+# --- Load data ---
 with open(MAPPING_PATH) as f:
     mapping = json.load(f)
 
@@ -81,87 +75,51 @@ seq_cons_vals = np.array(seq_cons_data["conservation"])
 data = np.load(os.path.join(DATA_DIR, "embeddings.npz"))
 sr_tracks, incl_tracks, excl_tracks = load_aligned_tracks(data, mapping)
 
-ref_pos = sr_tracks.get("human", next(iter(sr_tracks.values())))[0]
-grid = np.linspace(ref_pos.min(), ref_pos.max(), CONSERVATION_GRID)
-sr_cons = conservation_score(sr_tracks, grid)
-incl_cons = conservation_score(incl_tracks, grid)
-excl_cons = conservation_score(excl_tracks, grid)
-
 colors = cm.tab10(np.linspace(0, 0.9, len(sr_tracks)))
 species_colors = dict(zip(sr_tracks.keys(), colors))
 
-fig, axes = plt.subplots(
-    7,
+# --- Figure layout ---
+fig, (ax_sr, ax_incl, ax_excl, ax_seq_cons) = plt.subplots(
+    4,
     1,
-    figsize=(16, 23),
+    figsize=(16, 18),
     sharex=True,
-    gridspec_kw={"height_ratios": [3, 1, 3, 1, 3, 1, 1]},
+    gridspec_kw={"height_ratios": [3, 3, 3, 1]},
 )
-ax_sr, ax_sr_cons, ax_incl, ax_incl_cons, ax_excl, ax_excl_cons, ax_seq_cons = axes
+
+ax_sr.margins(x=0)
 
 # --- SR Balance ---
 for name, (pos, vals) in sr_tracks.items():
     p, v = break_at_gaps(pos, vals)
     ax_sr.plot(
-        p,
-        v,
-        label=name.capitalize(),
-        color=species_colors[name],
-        lw=1,
-        alpha=0.7,
+        p, v, label=name.capitalize(), color=species_colors[name], lw=1, alpha=0.7
     )
 ax_sr.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
 ax_sr.set_title("Aligned SR Balance Across MALAT1 Transcript")
 ax_sr.set_ylabel("SR Balance Score")
 ax_sr.legend(loc="upper right", fontsize=8)
 
-# --- SR Conservation ---
-ax_sr_cons.fill_between(grid, sr_cons, alpha=0.75, color="steelblue")
-ax_sr_cons.set_ylim(0, 1)
-ax_sr_cons.set_ylabel("Conservation\n(SR)", fontsize=8)
-ax_sr_cons.set_yticks([0, 0.5, 1])
-
 # --- Inclusion Activation ---
 for name, (pos, vals) in incl_tracks.items():
     p, v = break_at_gaps(pos, vals)
     ax_incl.plot(
-        p,
-        v,
-        label=name.capitalize(),
-        color=species_colors[name],
-        lw=1,
-        alpha=0.7,
+        p, v, label=name.capitalize(), color=species_colors[name], lw=1, alpha=0.7
     )
 ax_incl.set_title("Aligned Mean Inclusion Activation Across MALAT1 Transcript")
 ax_incl.set_ylabel("Activation Intensity")
 ax_incl.legend(loc="upper right", fontsize=8)
 
-# --- Inclusion Conservation ---
-ax_incl_cons.fill_between(grid, incl_cons, alpha=0.75, color="mediumpurple")
-ax_incl_cons.set_ylim(0, 1)
-ax_incl_cons.set_ylabel("Conservation\n(Inclusion)", fontsize=8)
-ax_incl_cons.set_yticks([0, 0.5, 1])
-
 # --- Exclusion Activation ---
 for name, (pos, vals) in excl_tracks.items():
     p, v = break_at_gaps(pos, vals)
     ax_excl.plot(
-        p,
-        v,
-        label=name.capitalize(),
-        color=species_colors[name],
-        lw=1,
-        alpha=0.7,
+        p, v, label=name.capitalize(), color=species_colors[name], lw=1, alpha=0.7
     )
 ax_excl.set_title("Aligned Mean Exclusion Activation Across MALAT1 Transcript")
 ax_excl.set_ylabel("Activation Intensity")
 ax_excl.legend(loc="upper right", fontsize=8)
 
-# --- Exclusion Conservation ---
-ax_excl_cons.fill_between(grid, excl_cons, alpha=0.75, color="darkorange")
-ax_excl_cons.set_ylim(0, 1)
-ax_excl_cons.set_ylabel("Conservation\n(Exclusion)", fontsize=8)
-ax_excl_cons.set_yticks([0, 0.5, 1])
 # --- Sequence Conservation ---
 seq_cons_p, seq_cons_v = break_at_gaps(seq_cons_pos, seq_cons_vals)
 ax_seq_cons.fill_between(seq_cons_p, seq_cons_v, alpha=0.75, color="seagreen")
