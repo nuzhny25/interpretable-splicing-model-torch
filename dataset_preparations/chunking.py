@@ -14,17 +14,21 @@ def chunk_sequence(seq, window_size, step_size):
         positions.append(i)
     return chunks, positions
 
+def main():
 
-for name in SPECIES:
-    input_path = f"{DATA_DIR}/{name}_malat1.txt"
-    output_path = f"{DATA_DIR}/{name}_malat1_chunks.csv"
+    for name in SPECIES:
+        input_path = f"{DATA_DIR}/{name}_malat1.txt"
+        output_path = f"{DATA_DIR}/{name}_malat1_chunks.csv"
 
-    try:
-        with open(input_path, "r") as file:
-            seq = file.read().replace("\n", "")
-    except FileNotFoundError:
-        print(f"Skipping {name}: {input_path} not found")
-        continue
+        try:
+            with open(input_path, "r") as file:
+                seq = file.read().replace("\n", "")
+        except FileNotFoundError:
+            print(f"Skipping {name}: {input_path} not found")
+            continue
 
-    chunks, positions = chunk_sequence(seq, WINDOW_SIZE, STEP_SIZE)
-    pd.DataFrame({"exon": chunks}).to_csv(output_path, index=False)
+        chunks, positions = chunk_sequence(seq, WINDOW_SIZE, STEP_SIZE)
+        pd.DataFrame({"exon": chunks}).to_csv(output_path, index=False)
+
+if __name__ == "__main__":
+    main()

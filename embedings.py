@@ -11,7 +11,7 @@ state_dict = torch.load("model_weights.pt", map_location="cpu")
 results = {}
 
 for name in SPECIES:
-    path = f"{DATA_DIR}/{name}_malat1_chunks.npz"
+    path = f"{DATA_DIR}/{name}_malat1_reversed_chunks.npz"
 
     try:
         dataset = np.load(path)
@@ -33,4 +33,4 @@ for name in SPECIES:
     results[f"{name}_incl_mean"] = a_incl.numpy().mean(axis=1)
     results[f"{name}_skip_mean"] = a_skip.numpy().mean(axis=1)
 
-np.savez(f"{DATA_DIR}/embeddings.npz", **results)
+np.savez(f"{DATA_DIR}/reversed_embeddings.npz", **results)
