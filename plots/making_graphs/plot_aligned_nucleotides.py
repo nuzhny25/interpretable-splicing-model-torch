@@ -50,6 +50,24 @@ def load_aligned_tracks(data, mapping):
     return sr, incl, excl
 
 
+def cross_species_sd(species_dict, step=STEP_SIZE):
+    """Per-position SD of SR balance across species on a common aligned grid."""
+    all_pos = np.concatenate([pos for pos, _ in species_dict.values()])
+    grid = np.arange(all_pos.min(), all_pos.max() + 1, step)
+
+    stacked = []
+    for pos, vals in species_dict.values():
+        order = np.argsort(pos)
+        pos_s, vals_s = pos[order], vals[order]
+        interp = np.interp(grid, pos_s, vals_s, left=np.nan, right=np.nan)
+        stacked.append(interp)
+    stacked = np.array(stacked)
+    sd = np.nanstd(stacked, axis=0)
+    valid = np.sum(~np.isnan(stacked), axis=0) >= 2
+    sd[~valid] = np.nan
+    return grid, sd
+
+
 def break_at_gaps(pos, vals, gap_factor=5):
     diffs = np.diff(pos)
     threshold = gap_factor * np.median(diffs)
@@ -74,17 +92,18 @@ seq_cons_vals = np.array(seq_cons_data["conservation"])
 
 data = np.load(os.path.join(DATA_DIR, "embeddings.npz"))
 sr_tracks, incl_tracks, excl_tracks = load_aligned_tracks(data, mapping)
+sd_pos, sd_vals = cross_species_sd(sr_tracks)
 
 colors = cm.tab10(np.linspace(0, 0.9, len(sr_tracks)))
 species_colors = dict(zip(sr_tracks.keys(), colors))
 
 # --- Figure layout ---
-fig, (ax_sr, ax_incl, ax_excl, ax_seq_cons) = plt.subplots(
-    4,
+fig, (ax_sr, ax_sr_sd, ax_incl, ax_excl, ax_seq_cons) = plt.subplots(
+    5,
     1,
-    figsize=(16, 18),
+    figsize=(16, 19),
     sharex=True,
-    gridspec_kw={"height_ratios": [3, 3, 3, 1]},
+    gridspec_kw={"height_ratios": [3, 1, 3, 3, 1]},
 )
 
 ax_sr.margins(x=0)
@@ -99,6 +118,11 @@ ax_sr.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
 ax_sr.set_title("Aligned SR Balance Across MALAT1 Transcript")
 ax_sr.set_ylabel("SR Balance Score")
 ax_sr.legend(loc="upper right", fontsize=8)
+
+# --- SR Balance cross-species SD ---
+ax_sr_sd.fill_between(sd_pos, sd_vals, alpha=0.75, color="steelblue")
+ax_sr_sd.set_ylabel("SR SD\n(across species)", fontsize=8)
+ax_sr_sd.margins(x=0)
 
 # --- Inclusion Activation ---
 for name, (pos, vals) in incl_tracks.items():
