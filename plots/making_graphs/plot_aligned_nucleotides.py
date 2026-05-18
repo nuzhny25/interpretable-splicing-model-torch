@@ -51,16 +51,31 @@ def load_aligned_tracks(data, mapping):
 
 
 def cross_species_sd(species_dict, step=STEP_SIZE):
-    """Per-position SD of SR balance across species on a common aligned grid."""
+    """Per-position SD of SR balance across species on a common aligned grid.
+
+    Nearest-neighbor lookup with a step/2 tolerance: a species contributes to
+    grid column X only if it has a window center within step/2 MSA columns of
+    X. Avoids fabricating values across mapping jumps caused by gaps.
+    """
     all_pos = np.concatenate([pos for pos, _ in species_dict.values()])
     grid = np.arange(all_pos.min(), all_pos.max() + 1, step)
+    tol = step / 2
 
     stacked = []
     for pos, vals in species_dict.values():
         order = np.argsort(pos)
-        pos_s, vals_s = pos[order], vals[order]
-        interp = np.interp(grid, pos_s, vals_s, left=np.nan, right=np.nan)
-        stacked.append(interp)
+        pos_s = pos[order]
+        vals_s = vals[order].astype(float)
+        ins = np.searchsorted(pos_s, grid)
+        left = np.clip(ins - 1, 0, len(pos_s) - 1)
+        right = np.clip(ins, 0, len(pos_s) - 1)
+        dist_left = np.abs(grid - pos_s[left])
+        dist_right = np.abs(grid - pos_s[right])
+        use_right = dist_right < dist_left
+        nearest_idx = np.where(use_right, right, left)
+        nearest_dist = np.where(use_right, dist_right, dist_left)
+        col = np.where(nearest_dist <= tol, vals_s[nearest_idx], np.nan)
+        stacked.append(col)
     stacked = np.array(stacked)
     sd = np.nanstd(stacked, axis=0)
     valid = np.sum(~np.isnan(stacked), axis=0) >= 2
