@@ -9,11 +9,12 @@ Python-side requirements:
 - `pandas`
 - `numpy`
 - `torch`
+- `tqdm`
 
 Install them with:
 
 ```bash
-pip install pandas numpy torch
+pip install pandas numpy torch tqdm
 ```
 
 System requirement:
@@ -124,12 +125,64 @@ a_incl, a_skip = model.compute_sequence_activations(x_seq, agg="mean")
 sr_balance = model.compute_sr_balance(x_seq, agg="mean")
 ```
 
-### Notes
+## Training
 
+`train.py` trains `PNASModel` from a prepared `.npz` dataset. It expects the dataset to contain a `metadata_PSI` column as the regression target (produced automatically by `prepare_dataset.py` if a `PSI` column is present in the source CSV).
+
+#### Quickstart
+
+```bash
+python train.py \
+    --train-npz data/train_data.npz \
+    --epochs 1 \
+    --batch-size 64 \
+    --patience 1 \
+    --checkpoint-dir /tmp/pnas_test \
+    --seed 0
+```
+
+This runs a single epoch on the provided training data from a randomly initialized model and saves the best checkpoint to `/tmp/pnas_test/`.
+
+#### Full argument reference
+
+| Group | Argument | Default | Description |
+|---|---|---|---|
+| data | `--train-npz` | *(required)* | Training `.npz` produced by `prepare_dataset.py` |
+| data | `--test-npz` | — | Optional held-out set; evaluated once with the best checkpoint after training |
+| data | `--val-split` | `0.1` | Fraction of training data used for validation |
+| model | `--input-length` | `90` | Input sequence length passed to `PNASModel` |
+| model | `--no-batchnorm` | off | Replace `BatchNorm1d` layers in `ResidualTuner` with `nn.Identity` |
+| model | `--checkpoint` | — | Warm-start from a checkpoint; partial checkpoints (seq filters only, seq+struct, or full model) are supported — missing parameters stay at random init |
+| optimization | `--batch-size` | `64` | |
+| optimization | `--epochs` | `100` | Maximum training epochs |
+| optimization | `--lr` | `1e-3` | Adam learning rate |
+| optimization | `--weight-decay` | `0.0` | Adam weight decay |
+| optimization | `--patience` | `10` | Early stopping patience (epochs without val loss improvement) |
+| runtime | `--checkpoint-dir` | `./checkpoints` | Directory for saving best-model checkpoints |
+| runtime | `--device` | *(auto)* | Torch device string, e.g. `cpu`, `cuda`, `cuda:1`; auto-detects CUDA if omitted |
+| runtime | `--seed` | `42` | Seeds `random`, `numpy`, and `torch` |
+
+#### Staged / warm-start training
+
+`--checkpoint` accepts both full and partial checkpoints. A partial checkpoint contains only a subset of parameter names — for example, just the sequence convolution filters and their position biases — and leaves all other parameters at random initialization. This supports workflows where sequence filters are learned first and a new tuner head is trained on top.
+
+```bash
+# Stage 1 — train sequence filters only (e.g. after stripping the checkpoint to seq keys)
+python train.py --train-npz data/train_data.npz --checkpoint seq_filters.pt ...
+
+# Stage 2 — continue with seq+struct filters loaded, tuner re-initialised
+python train.py --train-npz data/train_data.npz --checkpoint stage1_best.pt ...
+```
+
+The script logs every parameter as `[LOAD]`, `[INIT]` (kept at random init), or `[SKIP]` (present in the checkpoint but not in the model) at startup.
+
+#### Notes
+
+- BatchNorm is not working as expected on validation data, so **it is recommended to run with the `no-batchnorm`** flag.
 - The default public preprocessing path assumes unflanked exon input and adds model flanks automatically.
 - `load_state_dict()` in `PNASModel` resamples position-bias tensors when checkpoint and runtime input lengths differ.
 - `load_weights_from_dict()` is available for loading weights converted from an external TensorFlow/Keras export format.
 
-### Citation
+## Citation
 
 Please cite: Liao, Susan E., Mukund Sudarshan, and Oded Regev. "Deciphering RNA splicing logic with interpretable machine learning." Proceedings of the National Academy of Sciences 120.41 (2023): e2221165120.

@@ -210,3 +210,7 @@ pnas_split_data/*.npz
 /.DS_Store
 
 .DS_Store
+CLAUDE.md
+STATUS_TRACKER.md
+.claude
+dump
