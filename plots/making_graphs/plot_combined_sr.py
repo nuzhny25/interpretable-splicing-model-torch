@@ -22,7 +22,13 @@ WINDOW_SIZE = 70
 STEP_SIZE = 10
 
 
-def load_aligned_tracks(data, mapping):
+def load_aligned_tracks(data, mapping, reversed_orient=False):
+    """Map per-window predictions onto MSA coordinates.
+
+    For reversed-orientation embeddings, prediction i corresponds to a window
+    over the reverse-complement of the original sequence, so its center in
+    forward (original) ungapped coordinates is mirrored.
+    """
     sr, incl, excl = {}, {}, {}
     for idx, name in enumerate(SPECIES):
         if f"{name}_sr" not in data:
@@ -34,18 +40,23 @@ def load_aligned_tracks(data, mapping):
 
         aligned_positions, sr_vals, incl_vals, excl_vals = [], [], [], []
         for i in range(len(vals_sr)):
-            center_nuc = i * STEP_SIZE + WINDOW_SIZE // 2
-            if center_nuc < len(nuc_map):
+            if reversed_orient:
+                center_nuc = len(nuc_map) - 1 - (i * STEP_SIZE + WINDOW_SIZE // 2)
+            else:
+                center_nuc = i * STEP_SIZE + WINDOW_SIZE // 2
+            if 0 <= center_nuc < len(nuc_map):
                 aligned_positions.append(nuc_map[center_nuc])
                 sr_vals.append(vals_sr[i])
                 incl_vals.append(vals_incl[i])
                 excl_vals.append(vals_excl[i])
 
         if aligned_positions:
-            pos = np.array(aligned_positions)
-            sr[name] = (pos, np.array(sr_vals))
-            incl[name] = (pos, np.array(incl_vals))
-            excl[name] = (pos, np.array(excl_vals))
+            # sort by position so reversed orientation still runs 5'→3' on x
+            order = np.argsort(aligned_positions)
+            pos = np.array(aligned_positions)[order]
+            sr[name] = (pos, np.array(sr_vals)[order])
+            incl[name] = (pos, np.array(incl_vals)[order])
+            excl[name] = (pos, np.array(excl_vals)[order])
 
     return sr, incl, excl
 
@@ -106,59 +117,79 @@ seq_cons_pos = np.array(seq_cons_data["positions"])
 seq_cons_vals = np.array(seq_cons_data["conservation"])
 
 data = np.load(os.path.join(DATA_DIR, "embeddings.npz"))
-sr_tracks, incl_tracks, excl_tracks = load_aligned_tracks(data, mapping)
+sr_tracks, _, _ = load_aligned_tracks(data, mapping)
 sd_pos, sd_vals = cross_species_sd(sr_tracks)
 
 colors = cm.tab10(np.linspace(0, 0.9, len(sr_tracks)))
 species_colors = dict(zip(sr_tracks.keys(), colors))
 
+# --- Load data (reversed) ---
+reversed_data = np.load(os.path.join(DATA_DIR, "reversed_embeddings.npz"))
+reversed_sr_tracks, _, _ = load_aligned_tracks(
+    reversed_data, mapping, reversed_orient=True
+)
+reversed_sd_pos, reversed_sd_vals = cross_species_sd(reversed_sr_tracks)
+
+
 # --- Figure layout ---
-fig, (ax_sr, ax_sr_sd, ax_incl, ax_excl, ax_seq_cons) = plt.subplots(
-    5,
+fig, (ax_sr_fwd, ax_sr_rev, ax_sr_sd, ax_seq_cons) = plt.subplots(
+    4,
     1,
-    figsize=(16, 19),
+    figsize=(16, 16),
     sharex=True,
-    gridspec_kw={"height_ratios": [3, 1, 3, 3, 1]},
+    gridspec_kw={"height_ratios": [3, 3, 1, 1]},
 )
 
-ax_sr.margins(x=0)
+ax_sr_fwd.margins(x=0)
+ax_sr_rev.margins(x=0)
 
-# --- SR Balance ---
+# --- SR Balance (forward) ---
 for name, (pos, vals) in sr_tracks.items():
     p, v = break_at_gaps(pos, vals)
-    ax_sr.plot(
-        p, v, label=name.capitalize(), color=species_colors[name], lw=1, alpha=0.7
+    ax_sr_fwd.plot(
+        p,
+        v,
+        label=name.capitalize(),
+        color=species_colors[name],
+        lw=1,
+        alpha=0.7,
     )
-ax_sr.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
-ax_sr.set_title("Aligned SR Balance Across MALAT1 Transcript")
-ax_sr.set_ylabel("SR Balance Score")
-ax_sr.legend(loc="upper right", fontsize=8)
+ax_sr_fwd.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
+ax_sr_fwd.set_title("Aligned SR Balance Across MALAT1 Transcript (Forward)")
+ax_sr_fwd.set_ylabel("SR Balance Score")
+ax_sr_fwd.legend(loc="upper right", fontsize=8)
 
-# --- SR Balance cross-species SD ---
-ax_sr_sd.fill_between(sd_pos, sd_vals, alpha=0.75, color="steelblue")
-ax_sr_sd.set_title("Standard Deviation of Aligned SR Balance")
+# --- SR Balance (reversed) ---
+for name, (pos, vals) in reversed_sr_tracks.items():
+    p, v = break_at_gaps(pos, vals)
+    ax_sr_rev.plot(
+        p,
+        v,
+        label=name.capitalize(),
+        color=species_colors[name],
+        lw=1,
+        alpha=0.7,
+    )
+ax_sr_rev.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
+ax_sr_rev.set_title("Aligned SR Balance Across MALAT1 Transcript (Reversed)")
+ax_sr_rev.set_ylabel("SR Balance Score")
+ax_sr_rev.legend(loc="upper right", fontsize=8)
+
+# Align y-axes so forward/reversed are visually comparable.
+sr_ymin = min(ax_sr_fwd.get_ylim()[0], ax_sr_rev.get_ylim()[0])
+sr_ymax = max(ax_sr_fwd.get_ylim()[1], ax_sr_rev.get_ylim()[1])
+ax_sr_fwd.set_ylim(sr_ymin, sr_ymax)
+ax_sr_rev.set_ylim(sr_ymin, sr_ymax)
+
+# --- SR Balance cross-species SD (forward vs reversed) ---
+ax_sr_sd.fill_between(sd_pos, sd_vals, alpha=0.5, color="steelblue", label="Forward")
+ax_sr_sd.fill_between(
+    reversed_sd_pos, reversed_sd_vals, alpha=0.5, color="darkorange", label="Reversed"
+)
+ax_sr_sd.set_title("Cross-Species SD of SR Balance")
 ax_sr_sd.set_ylabel("SR SD\n(across species)", fontsize=8)
+ax_sr_sd.legend(loc="upper right", fontsize=8)
 ax_sr_sd.margins(x=0)
-
-# --- Inclusion Activation ---
-for name, (pos, vals) in incl_tracks.items():
-    p, v = break_at_gaps(pos, vals)
-    ax_incl.plot(
-        p, v, label=name.capitalize(), color=species_colors[name], lw=1, alpha=0.7
-    )
-ax_incl.set_title("Aligned Mean Inclusion Activation Across MALAT1 Transcript")
-ax_incl.set_ylabel("Activation Intensity")
-ax_incl.legend(loc="upper right", fontsize=8)
-
-# --- Exclusion Activation ---
-for name, (pos, vals) in excl_tracks.items():
-    p, v = break_at_gaps(pos, vals)
-    ax_excl.plot(
-        p, v, label=name.capitalize(), color=species_colors[name], lw=1, alpha=0.7
-    )
-ax_excl.set_title("Aligned Mean Exclusion Activation Across MALAT1 Transcript")
-ax_excl.set_ylabel("Activation Intensity")
-ax_excl.legend(loc="upper right", fontsize=8)
 
 # --- Sequence Conservation ---
 seq_cons_p, seq_cons_v = break_at_gaps(seq_cons_pos, seq_cons_vals)
@@ -174,7 +205,7 @@ ax_seq_cons.tick_params(axis="x", which="major", length=6)
 
 plt.tight_layout()
 plt.savefig(
-    os.path.join(os.path.dirname(__file__), "malat1_aligned_multispecies.png"),
+    os.path.join(os.path.dirname(__file__), "malat1_aligned_multispecies_multisr.png"),
     dpi=150,
     bbox_inches="tight",
 )

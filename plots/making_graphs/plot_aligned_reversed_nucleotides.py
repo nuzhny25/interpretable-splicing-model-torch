@@ -19,7 +19,7 @@ SEQ_CONS_PATH = os.path.join(
     os.path.dirname(__file__), "../sequence_conservation/sequence_conservation.json"
 )
 WINDOW_SIZE = 70
-STEP_SIZE = 10
+STEP_SIZE = 1
 
 
 def load_aligned_tracks(data, mapping):
