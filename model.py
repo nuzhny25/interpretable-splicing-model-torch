@@ -1,10 +1,14 @@
 """PyTorch implementation of the PNAS splicing model and related helpers."""
 
-# Torch Analog
+import logging
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+logger = logging.getLogger(__name__)
+
 
 def lanczos_kernel(x, order):
     """Compute Lanczos kernel weights for the given offsets.
@@ -87,7 +91,7 @@ class ResidualTuner(nn.Module):
     The input is expected to have a trailing dimension of size ``1`` so the
     residual addition can be applied directly.
     """
-    def __init__(self, hidden_units: int = 100, eps: float = 1e-3, momentum: float = 0.99):
+    def __init__(self, hidden_units: int = 100, eps: float = 1e-3, momentum: float = 0.99, use_batchnorm: bool = True):
         """Initialize the tuner network.
 
         Args:
@@ -95,17 +99,30 @@ class ResidualTuner(nn.Module):
             eps: Batch normalization epsilon.
             momentum: Keras-style batch normalization momentum. Internally
                 converted to the PyTorch convention.
+            use_batchnorm: If False, BatchNorm1d layers are replaced with
+                nn.Identity. Useful when batch statistics are unreliable
+                (e.g. very small batches or fine-tuning runs).
         """
         super().__init__()
         self.hidden_units = hidden_units
+        self.use_batchnorm = use_batchnorm
 
         self.fc1 = nn.Linear(1, hidden_units)          # in_features fixed to 1 to match Dense(?, hidden)
-        self.bn1 = nn.BatchNorm1d(hidden_units, eps=eps, momentum=1 - momentum)
+        self.bn1 = (
+            nn.BatchNorm1d(hidden_units, eps=eps, momentum=1 - momentum)
+            if use_batchnorm else nn.Identity()
+        )
 
         self.fc2 = nn.Linear(hidden_units, hidden_units)
-        self.bn2 = nn.BatchNorm1d(hidden_units, eps=eps, momentum=1 - momentum)
+        self.bn2 = (
+            nn.BatchNorm1d(hidden_units, eps=eps, momentum=1 - momentum)
+            if use_batchnorm else nn.Identity()
+        )
 
         self.fc3 = nn.Linear(hidden_units, 1)
+
+        if not use_batchnorm:
+            logger.info("ResidualTuner: BatchNorm disabled — bn1 and bn2 replaced with nn.Identity.")
 
     def forward(self, inp: torch.Tensor) -> torch.Tensor:
         """Run the residual calibration network.
@@ -162,60 +179,89 @@ class ResidualTuner(nn.Module):
         # ---- Dense 1 ----
         _copy(self.fc1.weight, weight_dict["fc1_w"], transpose=True)
         _copy(self.fc1.bias,   weight_dict["fc1_b"])
-    
+        logger.info("ResidualTuner.load_weights_from_dict: loaded fc1 weights.")
+
         # ---- BN 1 ----
-        _copy(self.bn1.weight,       weight_dict["bn1_gamma"])  # gamma
-        _copy(self.bn1.bias,         weight_dict["bn1_beta"])   # beta
-        _copy(self.bn1.running_mean, weight_dict["bn1_mean"])
-        _copy(self.bn1.running_var,  weight_dict["bn1_var"])
-    
+        if self.use_batchnorm:
+            _copy(self.bn1.weight,       weight_dict["bn1_gamma"])  # gamma
+            _copy(self.bn1.bias,         weight_dict["bn1_beta"])   # beta
+            _copy(self.bn1.running_mean, weight_dict["bn1_mean"])
+            _copy(self.bn1.running_var,  weight_dict["bn1_var"])
+            logger.info("ResidualTuner.load_weights_from_dict: loaded bn1 weights.")
+        else:
+            logger.warning(
+                "ResidualTuner.load_weights_from_dict: BatchNorm disabled — "
+                "skipping bn1 weights (bn1_gamma, bn1_beta, bn1_mean, bn1_var)."
+            )
+
         # ---- Dense 2 ----
         _copy(self.fc2.weight, weight_dict["fc2_w"], transpose=True)
         _copy(self.fc2.bias,   weight_dict["fc2_b"])
-    
+        logger.info("ResidualTuner.load_weights_from_dict: loaded fc2 weights.")
+
         # ---- BN 2 ----
-        _copy(self.bn2.weight,       weight_dict["bn2_gamma"])
-        _copy(self.bn2.bias,         weight_dict["bn2_beta"])
-        _copy(self.bn2.running_mean, weight_dict["bn2_mean"])
-        _copy(self.bn2.running_var,  weight_dict["bn2_var"])
-    
+        if self.use_batchnorm:
+            _copy(self.bn2.weight,       weight_dict["bn2_gamma"])
+            _copy(self.bn2.bias,         weight_dict["bn2_beta"])
+            _copy(self.bn2.running_mean, weight_dict["bn2_mean"])
+            _copy(self.bn2.running_var,  weight_dict["bn2_var"])
+            logger.info("ResidualTuner.load_weights_from_dict: loaded bn2 weights.")
+        else:
+            logger.warning(
+                "ResidualTuner.load_weights_from_dict: BatchNorm disabled — "
+                "skipping bn2 weights (bn2_gamma, bn2_beta, bn2_mean, bn2_var)."
+            )
+
         # ---- Dense 3 ----
         _copy(self.fc3.weight, weight_dict["fc3_w"], transpose=True)
         _copy(self.fc3.bias,   weight_dict["fc3_b"])
-    
+        logger.info("ResidualTuner.load_weights_from_dict: loaded fc3 weights.")
+
         return self
 
 class PNASModel(nn.Module):
     """Inference model for exon inclusion prediction from sequence and structure."""
 
-    def __init__(self, input_length=90):
+    def __init__(self, input_length=90, seq_in_channels=4, struct_in_channels=3, wobble_in_channels=1, use_batchnorm=True):
         """Initialize the model architecture.
 
         Args:
             input_length: Total length of the input window, including flanking
                 context. Defaults to ``90``.
+            use_batchnorm: Passed through to ResidualTuner. If False, the two
+                BatchNorm1d layers in the tuner are replaced with nn.Identity.
         """
         super(PNASModel, self).__init__()
         self.input_length = input_length
+
+        # In channels for sequence, structure, and wobble inputs.
+        self.seq_in_channels = seq_in_channels
+        self.struct_in_channels = struct_in_channels
+        self.wobble_in_channels = wobble_in_channels
+        self.total_struct_channels = self.seq_in_channels + self.struct_in_channels + self.wobble_in_channels
+    
+        # Fixed hyperparameters from original PNAS model
         self.seq_kernel_size = 6
         self.struct_kernel_size = 30
+        self.num_seq_filters = 20
+        self.num_struct_filters = 8
         
         ### Sequence layers ###
         # (valid padding) #
-        self.conv_skip = nn.Conv1d(in_channels=4, out_channels=20, kernel_size=self.seq_kernel_size, padding=0)
-        self.conv_incl = nn.Conv1d(in_channels=4, out_channels=20, kernel_size=self.seq_kernel_size, padding=0)
+        self.conv_skip = nn.Conv1d(in_channels=self.seq_in_channels, out_channels=self.num_seq_filters, kernel_size=self.seq_kernel_size, padding=0)
+        self.conv_incl = nn.Conv1d(in_channels=self.seq_in_channels, out_channels=self.num_seq_filters, kernel_size=self.seq_kernel_size, padding=0)
 
         # Position bias layers
         conv_out_shape = input_length - self.seq_kernel_size + 1
-        self.position_bias_skip = nn.Parameter(torch.zeros(20, conv_out_shape))
-        self.position_bias_incl = nn.Parameter(torch.zeros(20, conv_out_shape))
+        self.position_bias_skip = nn.Parameter(torch.zeros(self.num_seq_filters, conv_out_shape))
+        self.position_bias_incl = nn.Parameter(torch.zeros(self.num_seq_filters, conv_out_shape))
 
         ### Structure layers ###
         # (same padding) #
-        self.conv_struct_skip = nn.Conv1d(in_channels=8, out_channels=8, kernel_size=self.struct_kernel_size, padding='same')
-        self.conv_struct_incl = nn.Conv1d(in_channels=8, out_channels=8, kernel_size=self.struct_kernel_size, padding='same')
-        self.position_bias_skip_struct = nn.Parameter(torch.zeros(8, input_length))
-        self.position_bias_incl_struct = nn.Parameter(torch.zeros(8, input_length))
+        self.conv_struct_skip = nn.Conv1d(in_channels=self.total_struct_channels, out_channels=self.num_struct_filters, kernel_size=self.struct_kernel_size, padding='same')
+        self.conv_struct_incl = nn.Conv1d(in_channels=self.total_struct_channels, out_channels=self.num_struct_filters, kernel_size=self.struct_kernel_size, padding='same')
+        self.position_bias_skip_struct = nn.Parameter(torch.zeros(self.num_struct_filters, input_length))
+        self.position_bias_incl_struct = nn.Parameter(torch.zeros(self.num_struct_filters, input_length))
 
         ### Aggregation ###
         self.energy_seq_struct = SumDiff()
@@ -225,8 +271,14 @@ class PNASModel(nn.Module):
         self.energy_activation_skip = nn.Softplus()
 
         ### Tuner ###
-        self.tuner = ResidualTuner(hidden_units=4)
+        self.tuner = ResidualTuner(hidden_units=4, use_batchnorm=use_batchnorm)
         self.output_activation = nn.Sigmoid()
+
+        logger.info(
+            f"PNASModel initialized — input_length={input_length}, "
+            f"use_batchnorm={use_batchnorm}, "
+            f"total parameters: {sum(p.numel() for p in self.parameters()):,}"
+        )
 
     @torch.no_grad()
     def load_weights_from_dict(self, parameter_dict):
@@ -251,27 +303,6 @@ class PNASModel(nn.Module):
             b = parameter_dict[b_key]
             _copy_param(conv.weight, w)
             _copy_param(conv.bias, b)
-    
-        def _load_linear(fc: nn.Linear, w_key: str, b_key: str, tf_kernel: bool = True):
-            """
-            If tf_kernel=True, assumes src kernel is TF layout (in, out) and transposes to (out, in).
-            """
-            w = parameter_dict[w_key]
-            b = parameter_dict[b_key]
-            if tf_kernel:
-                w = w.t()
-            _copy_param(fc.weight, w)
-            _copy_param(fc.bias, b)
-    
-        def _load_bn(bn: nn.BatchNorm1d, gamma_key: str, beta_key: str, mean_key: str, var_key: str):
-            gamma = parameter_dict[gamma_key]
-            beta  = parameter_dict[beta_key]
-            mean  = parameter_dict[mean_key]
-            var   = parameter_dict[var_key]
-            bn.weight.copy_(_to_like(gamma, bn.weight))         # gamma
-            bn.bias.copy_(_to_like(beta, bn.bias))              # beta
-            bn.running_mean.copy_(_to_like(mean, bn.running_mean))
-            bn.running_var.copy_(_to_like(var, bn.running_var))
     
         # -------------------------
         # Sequence conv + pos bias
@@ -300,7 +331,7 @@ class PNASModel(nn.Module):
     
         return self
 
-    def forward(self, x_seq, x_struct, x_wobble):
+    def forward(self, x_seq, x_struct, x_wobble, return_logits=False):
         """Compute exon inclusion probabilities.
 
         Args:
@@ -313,11 +344,11 @@ class PNASModel(nn.Module):
             A batch of size one will be returned as a scalar because of the
             final ``squeeze()``.
         """
-        # Compute sequence activations - each is (batch_size, num_filters, 85)
+        # Compute sequence activations - each is (batch_size, F_seq, 85)
         conv_skip_out = self.conv_skip(x_seq) + self.position_bias_skip.unsqueeze(0)  # Add position bias
         conv_incl_out = self.conv_incl(x_seq) + self.position_bias_incl.unsqueeze(0)
         
-        # Compute structure activations - each is (batch_size, num_structure_filters, 90)
+        # Compute structure activations - each is (batch_size, F_struct, 90)
         struct_input = torch.cat([x_seq, x_struct, x_wobble], dim=1)  # Concatenate along channel dimension
         conv_struct_skip_out = self.conv_struct_skip(struct_input) + self.position_bias_skip_struct.unsqueeze(0)
         conv_struct_incl_out = self.conv_struct_incl(struct_input) + self.position_bias_incl_struct.unsqueeze(0)
@@ -327,16 +358,21 @@ class PNASModel(nn.Module):
         conv_struct_incl_out = conv_struct_incl_out[:, :, 2:-3]
 
         # Concatenated activations
-        activations_skip = self.energy_activation_skip(torch.cat([conv_skip_out, conv_struct_skip_out], dim=1))  # (batch_size, 28, 85)
-        activations_incl = self.energy_activation_incl(torch.cat([conv_incl_out, conv_struct_incl_out], dim=1))  # (batch_size, 28, 85)
+        activations_skip = self.energy_activation_skip(torch.cat([conv_skip_out, conv_struct_skip_out], dim=1))  # (batch_size, F_seq + F_struct, L-5)
+        activations_incl = self.energy_activation_incl(torch.cat([conv_incl_out, conv_struct_incl_out], dim=1))  # (batch_size, F_seq + F_struct, L-5)
 
         # Apply sum-difference
-        energy_in = torch.stack([activations_incl, activations_skip], dim=1)  # (batch_size, 2, 28, 85)
-        energy_out = self.energy_seq_struct(torch.stack([activations_incl, activations_skip], dim=1)).unsqueeze(1)  # (batch_size, 1)
+        energy_in = torch.stack([activations_incl, activations_skip], dim=1)  # (batch_size, 2, F_seq + F_struct, L-5)
+        energy_out = self.energy_seq_struct(energy_in).unsqueeze(-1)  # (batch_size, 1)
 
         # Apply tuner
         tuner_out = self.tuner(energy_out)  # (batch_size, 1)
-        out = self.output_activation(tuner_out).squeeze()  # (batch_size, 1)
+
+        if return_logits:
+            return tuner_out.squeeze()  # (batch_size,)
+        
+        # compute sigmoid, return (0, 1)
+        out = self.output_activation(tuner_out).squeeze()  # (batch_size,)
 
         return out
 
@@ -403,39 +439,119 @@ class PNASModel(nn.Module):
 
         F = 10  # fixed flank length
         margin = 5
-        
+
         pad_seq = min(F + margin, (self.input_length - self.seq_kernel_size + 1)//2)  # -> 15
         pad_struct = min(F + (self.struct_kernel_size - 1)//2 + margin, self.input_length//2)  # -> 29
-    
-        # --- sequence pos bias: shape (20, input_length - seq_kernel + 1)
+        target_seq_len = self.input_length - self.seq_kernel_size + 1
+
+        # --- sequence pos bias: shape (num_seq_filters, input_length - seq_kernel + 1)
         if "position_bias_skip" in sd:
+            src_len = sd["position_bias_skip"].shape[-1]
+            if src_len != target_seq_len:
+                logger.info(
+                    f"Resampling position_bias_skip: {src_len} -> {target_seq_len} "
+                    f"(padding={pad_seq})"
+                )
             sd["position_bias_skip"] = self._resample_position_bias(
                 sd["position_bias_skip"],
-                out_len=self.input_length - self.seq_kernel_size + 1,
+                out_len=target_seq_len,
                 padding=pad_seq,
             )
         if "position_bias_incl" in sd:
+            src_len = sd["position_bias_incl"].shape[-1]
+            if src_len != target_seq_len:
+                logger.info(
+                    f"Resampling position_bias_incl: {src_len} -> {target_seq_len} "
+                    f"(padding={pad_seq})"
+                )
             sd["position_bias_incl"] = self._resample_position_bias(
                 sd["position_bias_incl"],
-                out_len=self.input_length - self.seq_kernel_size + 1,
+                out_len=target_seq_len,
                 padding=pad_seq,
             )
-    
-        # --- structure pos bias: shape (8, input_length)  (NO kernel_size term)
+
+        # --- structure pos bias: shape (num_struct_filters, input_length)  (NO kernel_size term)
         if "position_bias_skip_struct" in sd:
+            src_len = sd["position_bias_skip_struct"].shape[-1]
+            if src_len != self.input_length:
+                logger.info(
+                    f"Resampling position_bias_skip_struct: {src_len} -> {self.input_length} "
+                    f"(padding={pad_struct})"
+                )
             sd["position_bias_skip_struct"] = self._resample_position_bias(
                 sd["position_bias_skip_struct"],
                 out_len=self.input_length,
                 padding=pad_struct,
             )
         if "position_bias_incl_struct" in sd:
+            src_len = sd["position_bias_incl_struct"].shape[-1]
+            if src_len != self.input_length:
+                logger.info(
+                    f"Resampling position_bias_incl_struct: {src_len} -> {self.input_length} "
+                    f"(padding={pad_struct})"
+                )
             sd["position_bias_incl_struct"] = self._resample_position_bias(
                 sd["position_bias_incl_struct"],
                 out_len=self.input_length,
                 padding=pad_struct,
             )
-    
+
         return super().load_state_dict(sd, strict=strict)
+
+    def load_partial_state_dict(self, state_dict):
+        """Load a (possibly partial) state dict with strict=False.
+
+        Keys present in ``state_dict`` are loaded into the model (with
+        position-bias resampling applied as needed). Keys absent from
+        ``state_dict`` are left at their current values — randomly initialized
+        if the model is fresh.
+
+        Typical use cases for staged training:
+
+        * Seq-only warm-start: checkpoint contains only conv_skip/incl and
+          their position biases; SumDiff, tuner, and struct layers stay random.
+        * Seq + struct warm-start: as above but also includes struct convs and
+          struct position biases.
+        * Full warm-start: all parameters present; equivalent to a strict load.
+
+        Args:
+            state_dict: Mapping of parameter names to tensors. Checkpoints
+                saved by this training script nest weights under
+                ``"model_state_dict"``; extract that key before calling here.
+
+        Returns:
+            The ``NamedTuple`` returned by ``nn.Module.load_state_dict``
+            (contains ``missing_keys`` and ``unexpected_keys``).
+        """
+        model_keys = set(self.state_dict().keys())
+        ckpt_keys  = set(state_dict.keys())
+
+        will_load       = sorted(model_keys & ckpt_keys)
+        random_init     = sorted(model_keys - ckpt_keys)
+        unexpected_ckpt = sorted(ckpt_keys  - model_keys)
+
+        logger.info("=== load_partial_state_dict ===")
+        logger.info(f"  Model parameters:      {len(model_keys)}")
+        logger.info(f"  Checkpoint parameters: {len(ckpt_keys)}")
+        logger.info(f"  Will be loaded ({len(will_load)}):")
+        for k in will_load:
+            logger.info(f"    [LOAD]  {k}")
+        if random_init:
+            logger.info(f"  Kept at current/random init ({len(random_init)}):")
+            for k in random_init:
+                logger.info(f"    [INIT]  {k}")
+        if unexpected_ckpt:
+            logger.warning(f"  Unexpected checkpoint keys — will be ignored ({len(unexpected_ckpt)}):")
+            for k in unexpected_ckpt:
+                logger.warning(f"    [SKIP]  {k}")
+
+        result = self.load_state_dict(state_dict, strict=False)
+        logger.info(
+            f"  Load result — missing: {len(result.missing_keys)}, "
+            f"unexpected: {len(result.unexpected_keys)}"
+        )
+        logger.info("=== load_partial_state_dict complete ===")
+        return result
 
     def _resample_position_bias(self, orig_weight: torch.Tensor, out_len: int, padding: int):
         """Resample a position-bias tensor while preserving edge padding.
