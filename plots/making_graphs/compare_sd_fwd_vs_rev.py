@@ -1,7 +1,11 @@
-"""Compare cross-species SD of forward vs reversed SR balance.
+"""Compare cross-species SD of SR balance across orientations.
 
-Prints the percentage of aligned positions where forward SD is lower than
-reversed SD, considering only positions where both have a valid SD.
+Prints, for each orientation pair, the percentage of aligned positions
+where one series has lower SD than the other, considering only positions
+where both have a valid SD. Pairs covered:
+  - forward vs reversed
+  - complement vs reverse complement
+Also prints overall median SD per series for cross-series comparison.
 """
 import json
 import os
@@ -71,33 +75,61 @@ with open(MAPPING_PATH) as f:
 
 fwd_data = np.load(os.path.join(DATA_DIR, "embeddings.npz"))
 rev_data = np.load(os.path.join(DATA_DIR, "reversed_embeddings.npz"))
+comp_data = np.load(os.path.join(DATA_DIR, "complement_embeddings.npz"))
+revcomp_data = np.load(os.path.join(DATA_DIR, "reversed_complement_embeddings.npz"))
 
 fwd_tracks = load_aligned_sr(fwd_data, mapping, reversed_orient=False)
 rev_tracks = load_aligned_sr(rev_data, mapping, reversed_orient=True)
+comp_tracks = load_aligned_sr(comp_data, mapping, reversed_orient=False)
+revcomp_tracks = load_aligned_sr(revcomp_data, mapping, reversed_orient=True)
 
+all_tracks = [fwd_tracks, rev_tracks, comp_tracks, revcomp_tracks]
 all_pos = np.concatenate(
-    [pos for pos, _ in fwd_tracks.values()] + [pos for pos, _ in rev_tracks.values()]
+    [pos for tracks in all_tracks for pos, _ in tracks.values()]
 )
 grid = np.arange(all_pos.min(), all_pos.max() + 1, STEP_SIZE)
 
 fwd_sd = sd_on_grid(fwd_tracks, grid)
 rev_sd = sd_on_grid(rev_tracks, grid)
+comp_sd = sd_on_grid(comp_tracks, grid)
+revcomp_sd = sd_on_grid(revcomp_tracks, grid)
 
-both_valid = ~np.isnan(fwd_sd) & ~np.isnan(rev_sd)
-n_both = int(both_valid.sum())
-n_fwd_lower = int(((fwd_sd < rev_sd) & both_valid).sum())
-n_rev_lower = int(((rev_sd < fwd_sd) & both_valid).sum())
-n_tie = n_both - n_fwd_lower - n_rev_lower
 
-pct_fwd = 100.0 * n_fwd_lower / n_both if n_both else float("nan")
-pct_rev = 100.0 * n_rev_lower / n_both if n_both else float("nan")
+def compare(name_a, sd_a, name_b, sd_b):
+    both_valid = ~np.isnan(sd_a) & ~np.isnan(sd_b)
+    n_both = int(both_valid.sum())
+    n_a_lower = int(((sd_a < sd_b) & both_valid).sum())
+    n_b_lower = int(((sd_b < sd_a) & both_valid).sum())
+    n_tie = n_both - n_a_lower - n_b_lower
+    pct_a = 100.0 * n_a_lower / n_both if n_both else float("nan")
+    pct_b = 100.0 * n_b_lower / n_both if n_both else float("nan")
+
+    print(f"\n--- {name_a} vs {name_b} ---")
+    print(f"Columns valid in both:        {n_both}")
+    print(f"{name_a} SD < {name_b} SD:  {n_a_lower} ({pct_a:.2f}%)")
+    print(f"{name_b} SD < {name_a} SD:  {n_b_lower} ({pct_b:.2f}%)")
+    print(f"Ties:                         {n_tie}")
+    print(
+        f"Median SD — {name_a}: {np.nanmedian(sd_a[both_valid]):.4f}, "
+        f"{name_b}: {np.nanmedian(sd_b[both_valid]):.4f}"
+    )
+
 
 print(f"Grid columns total:        {len(grid)}")
-print(f"Columns valid in both:     {n_both}")
-print(f"Forward SD < Reversed SD:  {n_fwd_lower} ({pct_fwd:.2f}%)")
-print(f"Reversed SD < Forward SD:  {n_rev_lower} ({pct_rev:.2f}%)")
-print(f"Ties:                      {n_tie}")
-print(
-    f"Median SD — forward: {np.nanmedian(fwd_sd[both_valid]):.4f}, "
-    f"reversed: {np.nanmedian(rev_sd[both_valid]):.4f}"
-)
+
+compare("Forward         ", fwd_sd, "Reversed       ", rev_sd)
+compare("Complement      ", comp_sd, "RevComplement  ", revcomp_sd)
+
+print("\n--- Overall median SD per series (valid positions only) ---")
+for name, sd in [
+    ("Forward         ", fwd_sd),
+    ("Reversed        ", rev_sd),
+    ("Complement      ", comp_sd),
+    ("RevComplement   ", revcomp_sd),
+]:
+    valid = ~np.isnan(sd)
+    print(
+        f"{name}  median: {np.nanmedian(sd[valid]):.4f}  "
+        f"mean: {np.nanmean(sd[valid]):.4f}  "
+        f"n_valid: {int(valid.sum())}"
+    )
