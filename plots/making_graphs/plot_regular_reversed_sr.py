@@ -130,46 +130,18 @@ reversed_sr_tracks, _, _ = load_aligned_tracks(
 )
 reversed_sd_pos, reversed_sd_vals = cross_species_sd(reversed_sr_tracks)
 
-# --- Load data (complement) ---
-# Complement is on the original strand orientation (not reversed), so use
-# reversed_orient=False for coordinate mapping.
-complement_data = np.load(os.path.join(DATA_DIR, "complement_embeddings.npz"))
-complement_sr_tracks, _, _ = load_aligned_tracks(complement_data, mapping)
-complement_sd_pos, complement_sd_vals = cross_species_sd(complement_sr_tracks)
-
-# --- Load data (reverse complement) ---
-rev_complement_data = np.load(
-    os.path.join(DATA_DIR, "reversed_complement_embeddings.npz")
-)
-rev_complement_sr_tracks, _, _ = load_aligned_tracks(
-    rev_complement_data, mapping, reversed_orient=True
-)
-rev_complement_sd_pos, rev_complement_sd_vals = cross_species_sd(
-    rev_complement_sr_tracks
-)
-
 
 # --- Figure layout ---
-fig, (
-    ax_sr_fwd,
-    ax_sr_rev,
-    ax_sr_comp,
-    ax_sr_revcomp,
-    ax_sr_sd,
-    ax_sr_sd_comp,
-    ax_seq_cons,
-) = plt.subplots(
-    7,
+fig, (ax_sr_fwd, ax_sr_rev, ax_sr_sd, ax_seq_cons) = plt.subplots(
+    4,
     1,
-    figsize=(16, 22),
+    figsize=(16, 16),
     sharex=True,
-    gridspec_kw={"height_ratios": [3, 3, 3, 3, 1, 1, 1]},
+    gridspec_kw={"height_ratios": [3, 3, 1, 1]},
 )
 
 ax_sr_fwd.margins(x=0)
 ax_sr_rev.margins(x=0)
-ax_sr_comp.margins(x=0)
-ax_sr_revcomp.margins(x=0)
 
 # --- SR Balance (forward) ---
 for name, (pos, vals) in sr_tracks.items():
@@ -203,85 +175,21 @@ ax_sr_rev.set_title("Aligned SR Balance Across MALAT1 Transcript (Reversed)")
 ax_sr_rev.set_ylabel("SR Balance Score")
 ax_sr_rev.legend(loc="upper right", fontsize=8)
 
-# --- SR Balance (complement) ---
-for name, (pos, vals) in complement_sr_tracks.items():
-    p, v = break_at_gaps(pos, vals)
-    ax_sr_comp.plot(
-        p,
-        v,
-        label=name.capitalize(),
-        color=species_colors[name],
-        lw=1,
-        alpha=0.7,
-    )
-ax_sr_comp.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
-ax_sr_comp.set_title("Aligned SR Balance Across MALAT1 Transcript (Complement)")
-ax_sr_comp.set_ylabel("SR Balance Score")
-ax_sr_comp.legend(loc="upper right", fontsize=8)
-
-# --- SR Balance (reverse complement) ---
-for name, (pos, vals) in rev_complement_sr_tracks.items():
-    p, v = break_at_gaps(pos, vals)
-    ax_sr_revcomp.plot(
-        p,
-        v,
-        label=name.capitalize(),
-        color=species_colors[name],
-        lw=1,
-        alpha=0.7,
-    )
-ax_sr_revcomp.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
-ax_sr_revcomp.set_title(
-    "Aligned SR Balance Across MALAT1 Transcript (Reverse Complement)"
-)
-ax_sr_revcomp.set_ylabel("SR Balance Score")
-ax_sr_revcomp.legend(loc="upper right", fontsize=8)
-
-# Align y-axes so all four SR panels are visually comparable.
-sr_axes = [ax_sr_fwd, ax_sr_rev, ax_sr_comp, ax_sr_revcomp]
-sr_ymin = min(ax.get_ylim()[0] for ax in sr_axes)
-sr_ymax = max(ax.get_ylim()[1] for ax in sr_axes)
-for ax in sr_axes:
-    ax.set_ylim(sr_ymin, sr_ymax)
+# Align y-axes so forward/reversed are visually comparable.
+sr_ymin = min(ax_sr_fwd.get_ylim()[0], ax_sr_rev.get_ylim()[0])
+sr_ymax = max(ax_sr_fwd.get_ylim()[1], ax_sr_rev.get_ylim()[1])
+ax_sr_fwd.set_ylim(sr_ymin, sr_ymax)
+ax_sr_rev.set_ylim(sr_ymin, sr_ymax)
 
 # --- SR Balance cross-species SD (forward vs reversed) ---
 ax_sr_sd.fill_between(sd_pos, sd_vals, alpha=0.5, color="steelblue", label="Forward")
 ax_sr_sd.fill_between(
     reversed_sd_pos, reversed_sd_vals, alpha=0.5, color="darkorange", label="Reversed"
 )
-ax_sr_sd.set_title("Cross-Species SD of SR Balance (Forward vs Reversed)")
+ax_sr_sd.set_title("Cross-Species SD of SR Balance")
 ax_sr_sd.set_ylabel("SR SD\n(across species)", fontsize=8)
 ax_sr_sd.legend(loc="upper right", fontsize=8)
 ax_sr_sd.margins(x=0)
-
-# --- SR Balance cross-species SD (complement vs reverse complement) ---
-ax_sr_sd_comp.fill_between(
-    complement_sd_pos,
-    complement_sd_vals,
-    alpha=0.5,
-    color="mediumorchid",
-    label="Complement",
-)
-ax_sr_sd_comp.fill_between(
-    rev_complement_sd_pos,
-    rev_complement_sd_vals,
-    alpha=0.5,
-    color="crimson",
-    label="Reverse Complement",
-)
-ax_sr_sd_comp.set_title(
-    "Cross-Species SD of SR Balance (Complement vs Reverse Complement)"
-)
-ax_sr_sd_comp.set_ylabel("SR SD\n(across species)", fontsize=8)
-ax_sr_sd_comp.legend(loc="upper right", fontsize=8)
-ax_sr_sd_comp.margins(x=0)
-
-# Align y-axes on both SD panels so SD magnitudes are visually comparable.
-sd_axes = [ax_sr_sd, ax_sr_sd_comp]
-sd_ymin = min(ax.get_ylim()[0] for ax in sd_axes)
-sd_ymax = max(ax.get_ylim()[1] for ax in sd_axes)
-for ax in sd_axes:
-    ax.set_ylim(sd_ymin, sd_ymax)
 
 # --- Sequence Conservation ---
 seq_cons_p, seq_cons_v = break_at_gaps(seq_cons_pos, seq_cons_vals)
