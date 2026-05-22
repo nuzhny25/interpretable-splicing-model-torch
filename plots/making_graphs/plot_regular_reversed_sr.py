@@ -205,7 +205,7 @@ ax_seq_cons.tick_params(axis="x", which="major", length=6)
 
 plt.tight_layout()
 plt.savefig(
-    os.path.join(os.path.dirname(__file__), "malat1_aligned_multispecies_multisr.png"),
+    os.path.join(os.path.dirname(__file__), "malat1_aligned_regular_reversed_sr.png"),
     dpi=150,
     bbox_inches="tight",
 )

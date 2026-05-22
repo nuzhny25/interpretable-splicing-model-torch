@@ -7,6 +7,7 @@ where both have a valid SD. Pairs covered:
   - complement vs reverse complement
 Also prints overall median SD per series for cross-series comparison.
 """
+
 import json
 import os
 import sys
@@ -84,9 +85,7 @@ comp_tracks = load_aligned_sr(comp_data, mapping, reversed_orient=False)
 revcomp_tracks = load_aligned_sr(revcomp_data, mapping, reversed_orient=True)
 
 all_tracks = [fwd_tracks, rev_tracks, comp_tracks, revcomp_tracks]
-all_pos = np.concatenate(
-    [pos for tracks in all_tracks for pos, _ in tracks.values()]
-)
+all_pos = np.concatenate([pos for tracks in all_tracks for pos, _ in tracks.values()])
 grid = np.arange(all_pos.min(), all_pos.max() + 1, STEP_SIZE)
 
 fwd_sd = sd_on_grid(fwd_tracks, grid)
