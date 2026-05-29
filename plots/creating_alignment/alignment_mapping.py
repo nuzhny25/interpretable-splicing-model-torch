@@ -3,7 +3,6 @@ import sys, os
 import numpy as np
 import json
 
-
 ROOT = os.path.join(os.path.dirname(__file__), "../..")
 sys.path.insert(0, ROOT)
 from dataset_preparations.maf_processing import SPECIES
@@ -46,7 +45,7 @@ def main():
     mapping = [[] for _ in range(matrix_np.shape[1])]
     for aligned_idx, row in enumerate(matrix_np):
         for species_idx, char in enumerate(row):
-            if char != "-":
+            if char != "-" and char != "N":
                 mapping[species_idx].append(aligned_idx)
 
     print(mapping[0][:100])
