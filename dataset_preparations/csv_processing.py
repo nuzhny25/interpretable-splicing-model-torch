@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -47,12 +48,13 @@ def prepare_data(
 
 def main():
     for name in SPECIES:
-        input_path = f"{DATA_DIR}/{name}_malat1_reversed_complement_chunks.csv"
-        output_path = f"{DATA_DIR}/{name}_malat1_reversed_complement_chunks.npz"
+        input_path = f"{DATA_DIR}/{name}_malat1_complement_chunks.csv"
+        output_path = f"{DATA_DIR}/{name}_malat1_complement_chunks.npz"
 
         try:
             with open(input_path, "r"):
                 prepare_data(input_path, output_path)
+            os.remove(input_path)
         except FileNotFoundError:
             print(f"Skipping {name}: {input_path} not found")
             continue
