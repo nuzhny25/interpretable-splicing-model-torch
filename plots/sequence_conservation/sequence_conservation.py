@@ -5,7 +5,9 @@ import json
 ROOT = os.path.join(os.path.dirname(__file__), "../..")
 
 MATRIX_PATH = os.path.join(ROOT, "data/multiz100/alignment_matrix.npy")
-MAPPING_PATH = os.path.join(os.path.dirname(__file__), "../creating_alignment/alignment_mapping.json")
+MAPPING_PATH = os.path.join(
+    os.path.dirname(__file__), "../creating_alignment/alignment_mapping.json"
+)
 OUT_PATH = os.path.join(os.path.dirname(__file__), "sequence_conservation.json")
 
 
