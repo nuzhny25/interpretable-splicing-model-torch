@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 data = np.load("data/embeddings.npz")
 
 human_sr = data["human_sr"]
@@ -9,7 +8,7 @@ mouse_sr = data["mouse_sr"]
 human_incl_mean = data["human_incl_mean"]
 mouse_incl_mean = data["mouse_incl_mean"]
 
-step_size = 10
+step_size = 1
 
 
 x_human = np.arange(len(human_sr)) * step_size
