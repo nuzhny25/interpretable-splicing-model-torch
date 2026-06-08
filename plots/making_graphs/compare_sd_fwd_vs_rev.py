@@ -65,8 +65,8 @@ def sd_on_grid(species_dict, grid, step=STEP_SIZE):
         col = np.where(dist <= tol, vals_s[nearest], np.nan)
         stacked.append(col)
     stacked = np.array(stacked)
-    sd = np.nanstd(stacked, axis=0)
-    valid = np.sum(~np.isnan(stacked), axis=0) >= 2
+    sd = np.nanstd(stacked, axis=0, ddof=1)
+    valid = np.sum(~np.isnan(stacked), axis=0) >= 10
     sd[~valid] = np.nan
     return sd
 

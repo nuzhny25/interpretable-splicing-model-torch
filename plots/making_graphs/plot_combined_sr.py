@@ -88,12 +88,12 @@ def cross_species_stats(species_dict, step=STEP_SIZE):
         col = np.where(nearest_dist <= tol, vals_s[nearest_idx], np.nan)
         stacked.append(col)
     stacked = np.array(stacked)
-    valid = np.sum(~np.isnan(stacked), axis=0) >= 2
+    valid = np.sum(~np.isnan(stacked), axis=0) >= 10
 
     med = np.nanmedian(stacked, axis=0)
     q25 = np.nanpercentile(stacked, 25, axis=0)
     q75 = np.nanpercentile(stacked, 75, axis=0)
-    sd = np.nanstd(stacked, axis=0)
+    sd = np.nanstd(stacked, axis=0, ddof=1)
     for arr in (med, q25, q75, sd):
         arr[~valid] = np.nan
     return grid, med, q25, q75, sd
@@ -110,10 +110,7 @@ def plot_sr_panel(ax, species_dict, species_colors, title):
         p, v = break_at_gaps(pos, vals)
         ax.plot(p, v, color=species_colors[name], lw=0.4, alpha=0.35)
 
-    grid, med, q25, q75, _ = cross_species_stats(species_dict)
-    ax.fill_between(
-        grid, q25, q75, color="black", alpha=0.12, linewidth=0, label="IQR"
-    )
+    grid, med, _, _, _ = cross_species_stats(species_dict)
     ax.plot(grid, med, color="black", lw=1.4, label="Median")
 
     ax.axhline(0, color="black", linestyle="--", lw=0.8, alpha=0.5)
