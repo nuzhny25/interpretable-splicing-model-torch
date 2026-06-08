@@ -13,7 +13,7 @@ DATA_DIR = "../data/multiz100"
 
 
 def prepare_data(
-    input_path,
+    input,
     output_path,
     sequence_column=DEFAULT_SEQUENCE_COLUMN,
     flanks=True,
@@ -23,7 +23,7 @@ def prepare_data(
     commands_file="",
     num_threads=8,
 ) -> None:
-    df = pd.read_csv(input_path)
+    df = input if isinstance(input, pd.DataFrame) else pd.read_csv(input)
     dataset = dataframe_to_dataset(
         df,
         sequence_column=sequence_column,
