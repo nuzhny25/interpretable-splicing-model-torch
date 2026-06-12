@@ -103,8 +103,8 @@ def main():
             sr_balance = a_incl.sum(dim=1) - a_skip.sum(dim=1)
 
         original_results[f"{species_names[j]}_sr"] = sr_balance.numpy()
-        original_results[f"{species_names[j]}_incl"] = a_incl.sum(dim=1)
-        original_results[f"{species_names[j]}_skip"] = a_skip.sum(dim=1)
+        original_results[f"{species_names[j]}_incl"] = a_incl.sum(dim=1).numpy()
+        original_results[f"{species_names[j]}_skip"] = a_skip.sum(dim=1).numpy()
 
     original_mapping = alignment_mapping(matrix)
     original_aligned_sr = load_aligned_sr(original_results, original_mapping, "sr")
@@ -153,8 +153,8 @@ def main():
 
             # save the model activations
             resulting[f"{species_names[j]}_sr"] = sr_balance.numpy()
-            resulting[f"{species_names[j]}_incl"] = a_incl.sum(dim=1)
-            resulting[f"{species_names[j]}_skip"] = a_skip.sum(dim=1)
+            resulting[f"{species_names[j]}_incl"] = a_incl.sum(dim=1).numpy()
+            resulting[f"{species_names[j]}_skip"] = a_skip.sum(dim=1).numpy()
 
         # produce the mapping for the permuted aligned matrix
 
