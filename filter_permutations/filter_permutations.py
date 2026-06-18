@@ -161,6 +161,37 @@ def main():
     original_std_sr = sd_on_grid(original_aligned_sr, original_grid)
     original_std_incl = sd_on_grid(original_aligned_incl, original_grid)
     original_std_skip = sd_on_grid(original_aligned_skip, original_grid)
+
+    # Per-run scale = within-species dynamic range (mean over species of the std
+    # across positions). Dividing the cross-species std by this makes the metric
+    # dimensionless and insensitive to the overall activation magnitude, so you
+    # can't "cheat" to a low std by simply shrinking all activations.
+    original_norm_sr = np.nanmean(
+        [
+            np.nanstd(v.astype(float), ddof=1)
+            for _, v in original_aligned_sr.values()
+            if len(v) >= 2
+        ]
+    )
+    original_norm_incl = np.nanmean(
+        [
+            np.nanstd(v.astype(float), ddof=1)
+            for _, v in original_aligned_incl.values()
+            if len(v) >= 2
+        ]
+    )
+    original_norm_skip = np.nanmean(
+        [
+            np.nanstd(v.astype(float), ddof=1)
+            for _, v in original_aligned_skip.values()
+            if len(v) >= 2
+        ]
+    )
+
+    original_std_sr = original_std_sr / original_norm_sr
+    original_std_incl = original_std_incl / original_norm_incl
+    original_std_skip = original_std_skip / original_norm_skip
+
     original_avg_std_sr = np.nanmean(original_std_sr)
     original_avg_std_incl = np.nanmean(original_std_incl)
     original_avg_std_skip = np.nanmean(original_std_skip)
@@ -225,6 +256,35 @@ def main():
             std_incl = sd_on_grid(aligned_incl_track, grid)
             std_skip = sd_on_grid(aligned_skip_track, grid)
 
+            # Per-permutation scale (within-species dynamic range). Each
+            # permutation is normalized by its OWN scale, so runs that produce
+            # larger/smaller activations are compared on equal, scale-free footing.
+            norm_sr = np.nanmean(
+                [
+                    np.nanstd(v.astype(float), ddof=1)
+                    for _, v in aligned_sr_track.values()
+                    if len(v) >= 2
+                ]
+            )
+            norm_incl = np.nanmean(
+                [
+                    np.nanstd(v.astype(float), ddof=1)
+                    for _, v in aligned_incl_track.values()
+                    if len(v) >= 2
+                ]
+            )
+            norm_skip = np.nanmean(
+                [
+                    np.nanstd(v.astype(float), ddof=1)
+                    for _, v in aligned_skip_track.values()
+                    if len(v) >= 2
+                ]
+            )
+
+            std_sr = std_sr / norm_sr
+            std_incl = std_incl / norm_incl
+            std_skip = std_skip / norm_skip
+
             # record per-grid-column std for this permutation
             percol_sr.append(std_sr)
             percol_incl.append(std_incl)
@@ -273,7 +333,7 @@ def main():
             **{f"skip_{k}": v for k, v in standard_deviation_skip.items()},
         )
 
-    # --- plot per-grid-column std: original vs avg independent vs avg shared ---
+    # --- plot per-grid-column std: original vs avg independent perm ---
     PLOT_DIR = "../plots/filter_permutations"
     os.makedirs(PLOT_DIR, exist_ok=True)
 
@@ -291,13 +351,6 @@ def main():
             color="tab:blue",
             lw=1.2,
             label="avg independent perm",
-        )
-        ax.plot(
-            original_grid,
-            per_column_avg["shared"][track_name],
-            color="tab:orange",
-            lw=1.2,
-            label="avg shared perm",
         )
         ax.set_ylabel(f"{track_name}\ncross-species std")
         ax.legend(loc="best", fontsize=8)
