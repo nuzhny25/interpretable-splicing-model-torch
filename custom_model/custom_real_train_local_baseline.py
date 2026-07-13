@@ -1,30 +1,44 @@
-"""Real cross-species training for the normalized SD-minimization loss.
+"""Real cross-species training with a LOCAL-baseline (excess-conservation) loss.
 
-Loads the real MALAT1 multiz alignment matrix (``data/multiz100/alignment_matrix.npy``,
-shape ``(n_aligned, n_species)`` of single characters with ``A/C/G/T`` plus
-lowercase soft-masked ``a/c/g/t`` and the gap symbols ``-`` / ``N``). Each epoch
-trains on a fresh random combination of 10 species drawn from the alignment.
+This is ``custom_real_train.py`` with exactly one change — the normalization of
+the per-column cross-species SD — so the two can be compared head to head.
 
-For every sampled species the SR-balance profile is computed by the simplified
-20+20-filter model on that species' gap-removed sequence (gaps are ``-`` and
-``N``; lowercase letters are nucleotides). Each 6-nt sliding-window value is then
-scattered back into alignment coordinates at the aligned column of the window's
-*first* nucleotide. Aligned columns that are gaps in a species — and the trailing
-nucleotides that never start a full window — are left absent (conceptually NaN).
+Motivation
+----------
+``custom_real_train.py`` divides every column's cross-species SD by a *single
+global* scalar (the within-species dynamic range). On the real MALAT1 alignment
+the background is ~86% conserved across species (phylogeny + overall selection),
+so almost every column already has a low cross-species SD regardless of the
+filters. Dividing by one global number cannot tell a functionally conserved
+column apart from a column that is merely sitting in a slow-evolving, closely
+related neighborhood. The loss is dominated by that shared phylogenetic
+conservation and collapses onto the single strongest motif.
 
-This produces a ``(10, n_aligned)`` matrix with NaN at gaps; the loss is the
-NaN-aware cross-species standard deviation taken down each column, restricted to
-columns where at least ``MIN_SPECIES`` of the 10 sampled species are present.
+Fix (a): local baseline instead of a global scalar
+--------------------------------------------------
+Here each column's cross-species SD is divided by a *per-column local baseline*
+— the masked rolling mean of ``col_std`` over a window of
+``+/- LOCAL_BASELINE_WINDOW`` aligned columns, counting only present columns.
+The loss then measures **excess** conservation: a column only lowers the loss
+when it is more cross-species-consistent than its own local background, rather
+than being rewarded for the phylogenetic conservation the whole region shares.
+This is the training analogue of what phyloP does when it scores a column
+against its neutral/local expectation instead of in absolute terms.
 
-The per-column cross-species SD is divided by the within-species dynamic range
-(mean over rows of each row's SD across positions), mirroring the normalization
-in filter_permutations/filter_permutations.py. This makes the loss scale-free:
-shrinking all activations toward zero shrinks the numerator and denominator
-equally, so the trivial "constant SR" collapse no longer lowers the loss.
+Both numerator (``col_std``) and denominator (``local_baseline``) are derived
+from the same SR track and scale together, so the loss stays scale-free: uniform
+shrinkage of all activations toward a constant does not lower it.
 
-The NaN matrix is implemented as a ``values`` + ``mask`` pair rather than literal
-NaN, so gradients stay finite: masked entries contribute 0 and receive no
-gradient, exactly matching ``np.nanstd(..., ddof=1)`` over the non-NaN entries.
+Caveat
+------
+This addresses the "background correlation swamps the contrast" failure. If
+motifs still collapse to one, that points to the deeper issue that uniformly
+conserved motifs give no *per-motif* gradient under an SD-minimization loss — the
+next step there is to score the SR track directly against a precomputed
+phyloP-style per-column conservation target (fix (b)).
+
+Everything else — species sampling, NaN-aware masking, Gaussian SR smoothing, and
+the L1 activation penalty — is identical to ``custom_real_train.py``.
 """
 
 import logging
@@ -55,6 +69,10 @@ L1_LAMBDA = (
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
+# Half-width (in aligned columns) of the local background window used to normalize
+# each column's cross-species SD. Wide enough to give a stable neighborhood
+# estimate, narrow enough to still be "local" relative to the ~15k-column gene.
+LOCAL_BASELINE_WINDOW = 45
 SEED = 0
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
@@ -90,9 +108,18 @@ def main():
         f"from {MATRIX_PATH} on {device} — sampling {N_SAMPLE} species/epoch, "
         f"column valid when >= {MIN_SPECIES} species present"
     )
+    logger.info(
+        f"Local-baseline normalization: masked rolling mean of col_std over "
+        f"+/-{LOCAL_BASELINE_WINDOW} aligned columns (excess-conservation loss)"
+    )
 
     model = PNASModel().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+
+    # Fixed box kernel for the local-baseline rolling mean, built once. Ones of
+    # width 2*W+1; applied with zero padding to both col_std*valid and the valid
+    # mask so edge columns average over the (fewer) neighbors that actually exist.
+    box_kernel = torch.ones(1, 1, 2 * LOCAL_BASELINE_WINDOW + 1, device=device)
 
     # Fixed Gaussian kernel for smoothing the SR profile along position, built once.
     # Sum-normalized so it's a weighted average (preserves overall scale). It carries
@@ -167,20 +194,28 @@ def main():
         col_std = torch.sqrt(col_var + 1e-8)
         valid = count >= MIN_SPECIES
 
-        # Denominator: within-species dynamic range = each row's SD across positions
-        # (NaN-aware, ddof=1), averaged over rows. Dividing by it makes the loss
-        # scale-free (matches filter_permutations/filter_permutations.py), so the
-        # model can't cheat to a low SD by shrinking all activations toward a constant.
-        rc = mask.sum(1)  # (N_SAMPLE,)
-        row_mean = (values * mask).sum(1) / rc.clamp(min=1)
-        row_var = (((values - row_mean.unsqueeze(1)) ** 2) * mask).sum(1) / (
-            rc - 1
-        ).clamp(min=1)
-        within_species_scale = torch.sqrt(row_var + 1e-8).mean()  # scalar
+        # Denominator: per-column LOCAL baseline = masked rolling mean of col_std over
+        # a +/-LOCAL_BASELINE_WINDOW window of *valid* columns. Convolving col_std*valid
+        # with a box kernel gives the neighborhood sum; convolving the valid mask with
+        # the same kernel gives how many valid columns fell in each window, so dividing
+        # yields the mean over present neighbors only (edges self-correct). Dividing
+        # each column by its own baseline makes the loss an excess-conservation measure
+        # (see module docstring); it stays differentiable and scale-free because the
+        # baseline is built from the same col_std as the numerator.
+        valid_f = valid.float()
+        local_sum = F.conv1d(
+            (col_std * valid_f).view(1, 1, -1),
+            box_kernel,
+            padding=LOCAL_BASELINE_WINDOW,
+        ).view(-1)
+        local_cnt = F.conv1d(
+            valid_f.view(1, 1, -1), box_kernel, padding=LOCAL_BASELINE_WINDOW
+        ).view(-1)
+        local_baseline = local_sum / local_cnt.clamp(min=1)
 
         sd_loss = (
-            col_std[valid] / within_species_scale
-        ).mean()  # normalized average column SD
+            col_std[valid] / (local_baseline[valid] + 1e-8)
+        ).mean()  # mean excess-conservation ratio over valid columns
 
         # L1 penalty on the summed softplus activations (activity sparsity -> peaked,
         # data-driven SR profiles). a_incl/a_skip are already >= 0, so no abs() is
@@ -201,7 +236,7 @@ def main():
                 f"| sd loss = {sd_loss.item():.6f} "
                 f"| l1 = {l1_penalty.item():.6f} "
                 f"| raw mean col SD = {col_std[valid].mean().item():.6f} "
-                f"| within-species scale = {within_species_scale.item():.6f} "
+                f"| mean local baseline = {local_baseline[valid].mean().item():.6f} "
                 f"| valid cols = {int(valid.sum().item())} "
                 f"| mean|conv_w| = {mean_abs_w:.6f}"
             )
@@ -209,9 +244,10 @@ def main():
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
+    # Distinct filename so it does not clobber custom_real_train.py's real_weights.pt.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "real_weights.pt")
+    weights_path = os.path.join(weights_dir, "real_local_baseline_weights.pt")
     torch.save(
         {
             "epoch": NUM_EPOCHS,

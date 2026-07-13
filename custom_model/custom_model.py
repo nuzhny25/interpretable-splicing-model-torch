@@ -52,7 +52,7 @@ class PNASModel(nn.Module):
 
         logger.info(f"total parameters: {sum(p.numel() for p in self.parameters()):,}")
 
-    def compute_sr_profile(self, x_seq):
+    def compute_sr_profile(self, x_seq, return_activations=False):
         """Per-position inclusion-minus-skipping SR-balance track.
 
         For every 6-nt sliding-window position it returns a single SR-balance
@@ -61,14 +61,23 @@ class PNASModel(nn.Module):
 
         Args:
             x_seq: Sequence tensor of shape ``(batch_size, 4, input_length)``.
+            return_activations: If True, also return the per-position summed
+                softplus activations ``a_incl`` and ``a_skip`` (both
+                non-negative, each of shape ``(batch_size, input_length - 5)``)
+                so a caller can penalize the activation magnitude directly.
 
         Returns:
             Tensor of shape ``(batch_size, input_length - seq_kernel_size + 1)``
-            giving the SR-balance at each window position.
+            giving the SR-balance at each window position. If
+            ``return_activations`` is True, instead returns the tuple
+            ``(sr, a_incl, a_skip)``.
         """
-        a_incl = F.softplus(self.conv_incl(x_seq)).sum(dim=1)  # (batch, L-5)
-        a_skip = F.softplus(self.conv_skip(x_seq)).sum(dim=1)  # (batch, L-5)
-        return a_incl - a_skip
+        a_incl = F.softplus(self.conv_incl(x_seq)).sum(dim=1)  # (batch, L-5), >= 0
+        a_skip = F.softplus(self.conv_skip(x_seq)).sum(dim=1)  # (batch, L-5), >= 0
+        sr = a_incl - a_skip
+        if return_activations:
+            return sr, a_incl, a_skip
+        return sr
 
     def load_partial_state_dict(self, state_dict):
         """Load a (possibly partial) state dict with strict=False.

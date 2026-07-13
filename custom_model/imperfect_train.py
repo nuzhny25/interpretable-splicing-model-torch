@@ -21,9 +21,14 @@ equally, so the trivial "constant SR" collapse no longer lowers the loss.
 import logging
 import math
 import os
+import sys
 
 import torch
 import torch.nn.functional as F
+
+# custom_model.py lives in the parent dir (custom_model/); add it to sys.path so
+# this script imports cleanly no matter which directory it's run from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from custom_model import PNASModel
 
@@ -33,7 +38,7 @@ logger = logging.getLogger(__name__)
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
 N_SPECIES = 10
 SEQ_LEN = 5000
-NUM_EPOCHS = 1000
+NUM_EPOCHS = 5000
 LR = 1e-2
 L1_LAMBDA = (
     1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
@@ -59,15 +64,17 @@ def make_synthetic_matrix(
     """One-hot ``(n_species, 4, seq_len)``: random rows sharing conserved motifs.
 
     Each row gets an independent random nucleotide background (channel order
-    ACGT). Then conserved blocks are written into every row at ``num_blocks``
-    evenly spaced, non-overlapping columns — the conserved regions. The blocks
-    are split evenly between all-A and all-C (length ``len(motif)``; the extra
-    block goes to poly-A when ``num_blocks`` is odd) and then shuffled across the
-    positions, but the same choice is written into every row, so all rows are
-    identical at those columns and differ everywhere else. Cross-species
-    variation thus lives only in the random background, while the
-    position-varying, species-invariant signal is a balanced mix of poly-A and
-    poly-C conserved blocks.
+    ACGT). Then conserved blocks are written at ``num_blocks`` evenly spaced,
+    non-overlapping columns — the conserved regions. The blocks are split evenly
+    between all-A and all-C (length ``len(motif)``; the extra block goes to
+    poly-A when ``num_blocks`` is odd) and then shuffled across the positions.
+    Each block is conserved in only 9 of the ``n_species`` rows: one randomly
+    chosen row per block keeps its random background there, so the 9 conserved
+    rows are identical at that column while the odd-one-out (which varies from
+    block to block) differs. Cross-species variation thus lives in the random
+    background plus these per-block dropouts, while the position-varying,
+    near-species-invariant signal is a balanced mix of poly-A and poly-C
+    conserved blocks.
     """
     idx = torch.randint(0, 4, (n_species, seq_len), device=device)
 
@@ -82,8 +89,14 @@ def make_synthetic_matrix(
     block_choices = block_choices[torch.randperm(num_blocks)]
 
     starts = torch.linspace(0, seq_len - motif_len, steps=num_blocks).long()
+    all_rows = torch.arange(n_species, device=device)
     for s, block_idx in zip(starts.tolist(), block_choices.tolist()):
-        idx[:, s : s + motif_len] = block_idx  # same homopolymer in every row
+        # Conserve the block in 9 of the n_species rows: one randomly chosen row
+        # keeps its random background here (a lineage-specific loss), so which
+        # species is the odd one out varies from block to block.
+        excluded = torch.randint(0, n_species, (1,)).item()
+        rows = all_rows[all_rows != excluded]
+        idx[rows, s : s + motif_len] = block_idx  # same homopolymer in the other 9 rows
 
     return F.one_hot(idx, num_classes=4).permute(0, 2, 1).float()
 

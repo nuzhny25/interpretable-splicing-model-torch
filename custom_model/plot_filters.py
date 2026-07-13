@@ -21,11 +21,15 @@ import os
 import matplotlib
 
 matplotlib.use("Agg")
+import logomaker
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import torch
 
 from custom_model import PNASModel
-from custom_real_train import NUCLEOTIDES
+
+NUCLEOTIDES = ["A", "C", "G", "T"]
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -55,7 +59,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--weights",
-        default=os.path.join(_HERE, "weights", "custom_model.pt"),
+        default=os.path.join(_HERE, "weights", "real_local_baseline_weights.pt"),
         help="Checkpoint saved by custom_train.py (weights under 'model_state_dict').",
     )
     parser.add_argument(
@@ -67,6 +71,11 @@ def main():
         "--txt",
         default=os.path.join(_HERE, "real_filters.txt"),
         help="Output path for the raw filter-weight text dump.",
+    )
+    parser.add_argument(
+        "--logos",
+        default=os.path.join(_HERE, "filter_logos.png"),
+        help="Output path for the enrichment/depletion (EDLogo) figure.",
     )
     args = parser.parse_args()
 
@@ -82,15 +91,27 @@ def main():
 
     # ── Learned-filter readout (motif-agnostic, since real training has no planted
     # motif): each filter's consensus motif (argmax nucleotide per kernel position)
-    # and its L1 strength, listed strongest-first within each conv bank. ──
-    readout_lines = ["Learned filter consensus motifs (argmax nucleotide per kernel position):"]
+    # and its strength, listed strongest-first within each conv bank. Ranked by the
+    # gauge-invariant strength |w_c|_1 (raw |w|_1 counts the arbitrary per-column
+    # offset the bias absorbs, so it over/under-states real discriminative power). ──
+    readout_lines = [
+        "Learned filter consensus motifs (argmax nucleotide per kernel position), "
+        "ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):"
+    ]
     for name, conv in convs:
         consensus, strength = filter_consensus(conv.weight.detach().cpu())
-        ranked = sorted(range(len(consensus)), key=lambda f: strength[f], reverse=True)
+        bias = conv.bias.detach().cpu()
+        # Median-center each filter column (removing the per-column offset the bias
+        # absorbs), then sum |centered weights| for a gauge-invariant strength.
+        w = conv.weight.detach().cpu().numpy()
+        w_c = w - np.median(w, axis=1, keepdims=True)
+        cstrength = np.abs(w_c).sum(axis=(1, 2))
+        ranked = sorted(range(len(consensus)), key=lambda f: cstrength[f], reverse=True)
         readout_lines.append(f"  [{name}] (strongest first):")
         for f in ranked:
             readout_lines.append(
-                f"    #{f:2d}  {consensus[f]}  (|w|_1={strength[f]:.3f})"
+                f"    #{f:2d}  {consensus[f]}  "
+                f"(|w_c|_1={cstrength[f]:.3f}, |w|_1={strength[f]:.3f}, bias={bias[f]:+.4f})"
             )
     for line in readout_lines:
         logger.info(line)
@@ -110,8 +131,12 @@ def main():
         )
         for name, conv in convs:
             weight = conv.weight.detach().cpu()
+            bias = conv.bias.detach().cpu()
             for filter_idx in range(num_filters):
-                fh.write(f"\n=== {name} filter #{filter_idx} ===\n")
+                fh.write(
+                    f"\n=== {name} filter #{filter_idx} "
+                    f"(bias={bias[filter_idx]:+.4f}) ===\n"
+                )
                 fh.write(pos_header + "\n")
                 for ch_idx, nt in enumerate(NUCLEOTIDES):
                     cells = "".join(
@@ -143,13 +168,14 @@ def main():
     im = None
     for block, (name, conv) in enumerate(convs):
         weight = conv.weight.detach().cpu()
+        bias = conv.bias.detach().cpu()
         for filter_idx in range(num_filters):
             ax = axes[block * rows_per_conv + filter_idx // n_cols][filter_idx % n_cols]
             ax.axis("on")
             im = ax.imshow(
                 weight[filter_idx], cmap="bwr", vmin=-vmax, vmax=vmax, aspect="auto"
             )
-            ax.set_title(f"{name} #{filter_idx}", fontsize=8)
+            ax.set_title(f"{name} #{filter_idx}  b={bias[filter_idx]:+.2f}", fontsize=8)
             ax.set_yticks(range(len(NUCLEOTIDES)))
             ax.set_yticklabels(NUCLEOTIDES, fontsize=6)
             ax.set_xticks(range(kernel_size))
@@ -160,6 +186,63 @@ def main():
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
     plt.close(fig)
     logger.info(f"Wrote {2 * num_filters} filter heat maps to {args.out}")
+
+    # ── Plot the same filters as enrichment/depletion logos (EDLogo). Median-centering
+    # each filter column removes the arbitrary per-column offset the bias absorbs; the
+    # remaining weights are the interpretable letter heights — positive above the axis
+    # = bases the filter is enriched for, negative below = depleted. Same 5-wide grid
+    # (INCL bank then SKIP bank). Each logo autoscales to its own y-range so weak
+    # motifs stay readable (one poly-A filter is ~35x stronger than the rest and a
+    # shared scale would flatten everything else); the gauge-invariant strength
+    # |w_c|_1 is printed per panel to keep cross-filter magnitude visible. ──
+    centered = {
+        name: conv.weight.detach().cpu().numpy()
+        - np.median(conv.weight.detach().cpu().numpy(), axis=1, keepdims=True)
+        for name, conv in convs
+    }
+
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(n_cols * 2.2, n_rows * 1.9),
+        squeeze=False,
+        gridspec_kw={"hspace": 0.6, "wspace": 0.3},
+    )
+    for ax in axes.ravel():
+        ax.axis("off")  # hide unused cells
+
+    for block, (name, conv) in enumerate(convs):
+        bias = conv.bias.detach().cpu()
+        w_c = centered[name]
+        for filter_idx in range(num_filters):
+            ax = axes[block * rows_per_conv + filter_idx // n_cols][filter_idx % n_cols]
+            ax.axis("on")
+            df = pd.DataFrame(w_c[filter_idx].T, columns=NUCLEOTIDES)
+            logomaker.Logo(
+                df,
+                ax=ax,
+                flip_below=False,  # keep depleted letters upright, below the axis
+                color_scheme="classic",
+                shade_below=0.0,
+                fade_below=0.0,
+            )
+            ax.axhline(0, color="k", lw=0.8)
+            cstrength = float(np.abs(w_c[filter_idx]).sum())
+            ax.set_title(
+                f"{name} #{filter_idx}  b={bias[filter_idx]:+.2f}  |w_c|={cstrength:.1f}",
+                fontsize=8,
+            )
+            ax.set_xticks(range(kernel_size))
+            ax.set_xticklabels(range(1, kernel_size + 1), fontsize=6)
+            ax.tick_params(axis="y", labelsize=6)
+
+    fig.suptitle(
+        "conv_incl / conv_skip EDLogos (median-centered weights; up = enriched, "
+        "down = depleted; per-filter y-scale, strength |w_c|_1 in title)"
+    )
+    fig.savefig(args.logos, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    logger.info(f"Wrote {2 * num_filters} filter EDLogos to {args.logos}")
 
 
 if __name__ == "__main__":
