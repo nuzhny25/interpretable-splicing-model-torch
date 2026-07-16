@@ -21,14 +21,9 @@ equally, so the trivial "constant SR" collapse no longer lowers the loss.
 import logging
 import math
 import os
-import sys
 
 import torch
 import torch.nn.functional as F
-
-# custom_model.py lives in the parent dir (custom_model/); add it to sys.path so
-# this script imports cleanly no matter which directory it's run from.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from custom_model import PNASModel
 
@@ -38,7 +33,7 @@ logger = logging.getLogger(__name__)
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
 N_SPECIES = 10
 SEQ_LEN = 5000
-NUM_EPOCHS = 5000
+NUM_EPOCHS = 10000
 LR = 1e-2
 L1_LAMBDA = (
     1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
@@ -49,8 +44,12 @@ SMOOTH_SIGMA = (
 SEED = 0
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
-MOTIF = "AAAAAA"  # sets the conserved block length; blocks are an even poly-A / poly-C split
-NUM_BLOCKS = 10  # number of evenly spaced conserved blocks
+# Motifs to plant as the conserved blocks. Type in whatever sequences you want
+# conserved (ACGT, any length, may be mixed lengths). Blocks are distributed as
+# evenly as possible across this list and shuffled across positions; the same
+# motif is written into every row, so all rows match at the conserved columns.
+MOTIFS = ["ACGTAC", "CCGGCC"]
+NUM_BLOCKS = 300  # number of evenly spaced conserved blocks
 
 
 def motif_to_indices(motif: str) -> list[int]:
@@ -59,44 +58,37 @@ def motif_to_indices(motif: str) -> list[int]:
 
 
 def make_synthetic_matrix(
-    n_species: int, seq_len: int, motif: str, num_blocks: int, device
+    n_species: int, seq_len: int, motifs: list[str], num_blocks: int, device
 ) -> torch.Tensor:
     """One-hot ``(n_species, 4, seq_len)``: random rows sharing conserved motifs.
 
     Each row gets an independent random nucleotide background (channel order
-    ACGT). Then conserved blocks are written at ``num_blocks`` evenly spaced,
-    non-overlapping columns — the conserved regions. The blocks are split evenly
-    between all-A and all-C (length ``len(motif)``; the extra block goes to
-    poly-A when ``num_blocks`` is odd) and then shuffled across the positions.
-    Each block is conserved in only 9 of the ``n_species`` rows: one randomly
-    chosen row per block keeps its random background there, so the 9 conserved
-    rows are identical at that column while the odd-one-out (which varies from
-    block to block) differs. Cross-species variation thus lives in the random
-    background plus these per-block dropouts, while the position-varying,
-    near-species-invariant signal is a balanced mix of poly-A and poly-C
-    conserved blocks.
+    ACGT). Then conserved blocks are written into every row at ``num_blocks``
+    evenly spaced, non-overlapping columns — the conserved regions. Each block is
+    assigned one motif from ``motifs`` (distributed as evenly as possible across
+    the list, then shuffled across positions), and the same motif is written into
+    every row, so all rows are identical at those columns and differ everywhere
+    else. Cross-species variation thus lives only in the random background, while
+    the position-varying, species-invariant signal is the planted motifs.
     """
     idx = torch.randint(0, 4, (n_species, seq_len), device=device)
 
-    motif_len = len(motif)
-    a_idx = NUCLEOTIDES.index("A")
-    c_idx = NUCLEOTIDES.index("C")
+    # Pre-map each motif to its ACGT channel indices; space blocks by the longest
+    # motif so no two conserved regions overlap regardless of mixed lengths.
+    motif_indices = [motif_to_indices(m) for m in motifs]
+    max_len = max(len(m) for m in motifs)
 
-    # Balanced split: half the blocks poly-C, the rest poly-A, then shuffled so
-    # the two homopolymers are interleaved at random positions (not clustered).
-    n_c = num_blocks // 2
-    block_choices = torch.tensor([c_idx] * n_c + [a_idx] * (num_blocks - n_c))
+    # Balanced assignment: cycle through the motif list so each appears about
+    # num_blocks / len(motifs) times, then shuffle so the motifs are interleaved
+    # at random positions (not clustered).
+    block_choices = torch.tensor([i % len(motifs) for i in range(num_blocks)])
     block_choices = block_choices[torch.randperm(num_blocks)]
 
-    starts = torch.linspace(0, seq_len - motif_len, steps=num_blocks).long()
-    all_rows = torch.arange(n_species, device=device)
-    for s, block_idx in zip(starts.tolist(), block_choices.tolist()):
-        # Conserve the block in 9 of the n_species rows: one randomly chosen row
-        # keeps its random background here (a lineage-specific loss), so which
-        # species is the odd one out varies from block to block.
-        excluded = torch.randint(0, n_species, (1,)).item()
-        rows = all_rows[all_rows != excluded]
-        idx[rows, s : s + motif_len] = block_idx  # same homopolymer in the other 9 rows
+    starts = torch.linspace(0, seq_len - max_len, steps=num_blocks).long()
+    for s, choice in zip(starts.tolist(), block_choices.tolist()):
+        block = motif_indices[choice]
+        for j, ch in enumerate(block):
+            idx[:, s + j] = ch  # same motif in every row
 
     return F.one_hot(idx, num_classes=4).permute(0, 2, 1).float()
 
@@ -106,12 +98,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     x = make_synthetic_matrix(
-        N_SPECIES, SEQ_LEN, MOTIF, NUM_BLOCKS, device
+        N_SPECIES, SEQ_LEN, MOTIFS, NUM_BLOCKS, device
     )  # (10, 4, 5000)
     logger.info(
         f"Synthetic matrix: {tuple(x.shape)} on {device} — "
-        f"{NUM_BLOCKS} conserved blocks of length {len(MOTIF)}, "
-        f"balanced poly-A / poly-C split"
+        f"{NUM_BLOCKS} conserved blocks drawn evenly from motifs {MOTIFS}"
     )
 
     model = PNASModel().to(device)
@@ -192,14 +183,12 @@ def main():
     # ── Run metadata for the plotter/sidecar: dataset identity, planted motif, the
     # hyperparameters, and the final-epoch loss values. The "final" numbers are read
     # from the loop variables still in scope after the loop (their last-iteration
-    # values), so nothing in the training loop above changes. Here each block is
-    # conserved in only 9/10 species (see make_synthetic_matrix). ──
+    # values), so nothing in the training loop above changes. ──
     metadata = {
         "dataset": "synthetic",
         "script": os.path.basename(__file__),
-        "motif": MOTIF,
+        "motifs": MOTIFS,
         "num_blocks": NUM_BLOCKS,
-        "conserved_species": f"{N_SPECIES - 1}/{N_SPECIES}",
         "hparams": {
             "num_epochs": NUM_EPOCHS,
             "lr": LR,

@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "dataset": "synthetic",
+    "script": "custom_synthetic_train_realistic.py",
+    "motifs": [
+      "AAAAAA",
+      "CCCCCC"
+    ],
+    "num_blocks": 300,
+    "hparams": {
+      "num_epochs": 10000,
+      "lr": 0.01,
+      "l1_lambda": 0.01,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_species": 10,
+      "seq_len": 5000,
+      "bg_block_len": 6,
+      "bg_mutable_per_block": 3,
+      "bg_mut_prob": 0.25
+    },
+    "final": {
+      "loss": 0.04389701038599014,
+      "sd_loss": 0.043781083077192307,
+      "l1": 0.00011592837836360559,
+      "raw_mean_col_sd": 0.000597114791162312,
+      "within_species_scale": 0.013638648204505444
+    }
+  },
+  "caption": "dataset: synthetic | model: ? | motif: ['AAAAAA', 'CCCCCC'] (300 blocks) | epochs: 10000 | final loss 0.0439 (sd 0.0438, l1 0.0001) | lr 0.01, l1\u03bb 0.01, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/weights/custom_model_realistic.pt",
+    "epoch": 10000,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/filter_logos.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/real_filters.txt",
+    "generated_at": "2026-07-15T15:19:17"
+  }
+}

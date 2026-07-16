@@ -206,6 +206,34 @@ def main():
                 f"| mean|conv_w| = {mean_abs_w:.6f}"
             )
 
+    # ── Run metadata for the plotter/sidecar: dataset identity (real alignment, so
+    # no planted motif), the source matrix, the hyperparameters, and the final-epoch
+    # loss values. The "final" numbers are read from the loop variables still in scope
+    # after the loop (their last-iteration values), so nothing in the training loop
+    # above changes; raw_mean_col_sd is over valid columns to match the training log. ──
+    metadata = {
+        "dataset": "real",
+        "script": os.path.basename(__file__),
+        "motif": None,
+        "matrix_path": MATRIX_PATH,
+        "hparams": {
+            "num_epochs": NUM_EPOCHS,
+            "lr": LR,
+            "l1_lambda": L1_LAMBDA,
+            "smooth_sigma": SMOOTH_SIGMA,
+            "seed": SEED,
+            "n_sample": N_SAMPLE,
+            "min_species": MIN_SPECIES,
+        },
+        "final": {
+            "loss": float(loss.item()),
+            "sd_loss": float(sd_loss.item()),
+            "l1": float(l1_penalty.item()),
+            "raw_mean_col_sd": float(col_std[valid].mean().item()),
+            "within_species_scale": float(within_species_scale.item()),
+        },
+    }
+
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
@@ -217,6 +245,7 @@ def main():
             "epoch": NUM_EPOCHS,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "metadata": metadata,
         },
         weights_path,
     )

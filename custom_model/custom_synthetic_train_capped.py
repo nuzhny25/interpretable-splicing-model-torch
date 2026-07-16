@@ -1,8 +1,9 @@
 """Synthetic training for the normalized cross-species SD-minimization loss.
 
 Builds a hardcoded ``10 x 5000`` matrix of aligned sequences (10 "species" rows,
-5000 nucleotides each, no gaps), runs the simplified 20+20-filter model to get a
-per-position SR-balance track for each row, and minimizes a normalized
+5000 nucleotides each, no gaps), runs the simplified 20+20-filter model — whose
+per-filter activations are tanh-capped to ``[0, 1)`` (``tanh(softplus(conv))``) —
+to get a per-position SR-balance track for each row, and minimizes a normalized
 cross-species standard deviation.
 
 The model processes the 10 rows as an independent batch — it never sees that
@@ -21,16 +22,11 @@ equally, so the trivial "constant SR" collapse no longer lowers the loss.
 import logging
 import math
 import os
-import sys
 
 import torch
 import torch.nn.functional as F
 
-# custom_model.py lives in the parent dir (custom_model/); add it to sys.path so
-# this script imports cleanly no matter which directory it's run from.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from custom_model import PNASModel
+from custom_model_capped import PNASModel
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -38,19 +34,26 @@ logger = logging.getLogger(__name__)
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
 N_SPECIES = 10
 SEQ_LEN = 5000
-NUM_EPOCHS = 5000
+NUM_EPOCHS = 10000
 LR = 1e-2
-L1_LAMBDA = (
-    1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
-)
+L1_LAMBDA = 1e-2  # strength of L1 penalty on the tanh-capped activations (retune by watching logs)
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
 SEED = 0
 
+# Descriptor of the model's filter-activation / output scheme, recorded in the
+# checkpoint metadata so the plotter can label which variant produced the
+# filters. Set it to match compute_sr_profile's activation: "softplus" for the
+# default (uncapped) model, or e.g. "capped-tanh" / "capped-sigmoid" when the
+# per-filter activations are capped to [0, 1].
+MODEL_TYPE = "capped-tanh"
+
 NUCLEOTIDES = ["A", "C", "G", "T"]
-MOTIF = "AAAAAA"  # sets the conserved block length; blocks are an even poly-A / poly-C split
-NUM_BLOCKS = 10  # number of evenly spaced conserved blocks
+MOTIF = (
+    "AAAA"  # sets the conserved block length; blocks are an even poly-A / poly-C split
+)
+NUM_BLOCKS = 250  # number of evenly spaced conserved blocks
 
 
 def motif_to_indices(motif: str) -> list[int]:
@@ -64,17 +67,15 @@ def make_synthetic_matrix(
     """One-hot ``(n_species, 4, seq_len)``: random rows sharing conserved motifs.
 
     Each row gets an independent random nucleotide background (channel order
-    ACGT). Then conserved blocks are written at ``num_blocks`` evenly spaced,
-    non-overlapping columns — the conserved regions. The blocks are split evenly
-    between all-A and all-C (length ``len(motif)``; the extra block goes to
-    poly-A when ``num_blocks`` is odd) and then shuffled across the positions.
-    Each block is conserved in only 9 of the ``n_species`` rows: one randomly
-    chosen row per block keeps its random background there, so the 9 conserved
-    rows are identical at that column while the odd-one-out (which varies from
-    block to block) differs. Cross-species variation thus lives in the random
-    background plus these per-block dropouts, while the position-varying,
-    near-species-invariant signal is a balanced mix of poly-A and poly-C
-    conserved blocks.
+    ACGT). Then conserved blocks are written into every row at ``num_blocks``
+    evenly spaced, non-overlapping columns — the conserved regions. The blocks
+    are split evenly between all-A and all-C (length ``len(motif)``; the extra
+    block goes to poly-A when ``num_blocks`` is odd) and then shuffled across the
+    positions, but the same choice is written into every row, so all rows are
+    identical at those columns and differ everywhere else. Cross-species
+    variation thus lives only in the random background, while the
+    position-varying, species-invariant signal is a balanced mix of poly-A and
+    poly-C conserved blocks.
     """
     idx = torch.randint(0, 4, (n_species, seq_len), device=device)
 
@@ -89,14 +90,8 @@ def make_synthetic_matrix(
     block_choices = block_choices[torch.randperm(num_blocks)]
 
     starts = torch.linspace(0, seq_len - motif_len, steps=num_blocks).long()
-    all_rows = torch.arange(n_species, device=device)
     for s, block_idx in zip(starts.tolist(), block_choices.tolist()):
-        # Conserve the block in 9 of the n_species rows: one randomly chosen row
-        # keeps its random background here (a lineage-specific loss), so which
-        # species is the odd one out varies from block to block.
-        excluded = torch.randint(0, n_species, (1,)).item()
-        rows = all_rows[all_rows != excluded]
-        idx[rows, s : s + motif_len] = block_idx  # same homopolymer in the other 9 rows
+        idx[:, s : s + motif_len] = block_idx  # same homopolymer in every row
 
     return F.one_hot(idx, num_classes=4).permute(0, 2, 1).float()
 
@@ -136,7 +131,7 @@ def main():
 
     for epoch in range(1, NUM_EPOCHS + 1):
         optimizer.zero_grad()
-        # a_incl / a_skip are the raw (unsmoothed) summed softplus activations,
+        # a_incl / a_skip are the raw (unsmoothed) summed tanh-capped activations,
         # both (10, num_windows) and >= 0; used by the activation L1 penalty below.
         sr, a_incl, a_skip = model.compute_sr_profile(x, return_activations=True)
 
@@ -163,7 +158,7 @@ def main():
             col_std
         ).mean() / within_species_scale  # normalized average column SD
 
-        # L1 penalty on the summed softplus activations (activity sparsity -> peaked,
+        # L1 penalty on the summed tanh-capped activations (activity sparsity -> peaked,
         # data-driven SR profiles). a_incl/a_skip are already >= 0, so no abs() is
         # needed; .mean() keeps the penalty independent of seq length / batch size.
 
@@ -192,14 +187,13 @@ def main():
     # ── Run metadata for the plotter/sidecar: dataset identity, planted motif, the
     # hyperparameters, and the final-epoch loss values. The "final" numbers are read
     # from the loop variables still in scope after the loop (their last-iteration
-    # values), so nothing in the training loop above changes. Here each block is
-    # conserved in only 9/10 species (see make_synthetic_matrix). ──
+    # values), so nothing in the training loop above changes. ──
     metadata = {
         "dataset": "synthetic",
         "script": os.path.basename(__file__),
+        "model_type": MODEL_TYPE,
         "motif": MOTIF,
         "num_blocks": NUM_BLOCKS,
-        "conserved_species": f"{N_SPECIES - 1}/{N_SPECIES}",
         "hparams": {
             "num_epochs": NUM_EPOCHS,
             "lr": LR,
@@ -223,7 +217,7 @@ def main():
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "custom_model.pt")
+    weights_path = os.path.join(weights_dir, "custom_model_capped.pt")
     torch.save(
         {
             "epoch": NUM_EPOCHS,

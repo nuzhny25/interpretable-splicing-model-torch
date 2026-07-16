@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
 N_SPECIES = 10
 SEQ_LEN = 5000
-NUM_EPOCHS = 1000
+NUM_EPOCHS = 10000
 LR = 1e-2
 L1_LAMBDA = (
     1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
@@ -44,8 +44,10 @@ SMOOTH_SIGMA = (
 SEED = 0
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
-MOTIF = "AAAAAA"  # sets the conserved block length; blocks are an even poly-A / poly-C split
-NUM_BLOCKS = 10  # number of evenly spaced conserved blocks
+MOTIF = (
+    "AAAA"  # sets the conserved block length; blocks are an even poly-A / poly-C split
+)
+NUM_BLOCKS = 250  # number of evenly spaced conserved blocks
 
 
 def motif_to_indices(motif: str) -> list[int]:
@@ -176,6 +178,33 @@ def main():
                 f"| mean|conv_w| = {mean_abs_w:.6f}"
             )
 
+    # ── Run metadata for the plotter/sidecar: dataset identity, planted motif, the
+    # hyperparameters, and the final-epoch loss values. The "final" numbers are read
+    # from the loop variables still in scope after the loop (their last-iteration
+    # values), so nothing in the training loop above changes. ──
+    metadata = {
+        "dataset": "synthetic",
+        "script": os.path.basename(__file__),
+        "motif": MOTIF,
+        "num_blocks": NUM_BLOCKS,
+        "hparams": {
+            "num_epochs": NUM_EPOCHS,
+            "lr": LR,
+            "l1_lambda": L1_LAMBDA,
+            "smooth_sigma": SMOOTH_SIGMA,
+            "seed": SEED,
+            "n_species": N_SPECIES,
+            "seq_len": SEQ_LEN,
+        },
+        "final": {
+            "loss": float(loss.item()),
+            "sd_loss": float(sd_loss.item()),
+            "l1": float(l1_penalty.item()),
+            "raw_mean_col_sd": float(col_std.mean().item()),
+            "within_species_scale": float(within_species_scale.item()),
+        },
+    }
+
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
@@ -187,6 +216,7 @@ def main():
             "epoch": NUM_EPOCHS,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "metadata": metadata,
         },
         weights_path,
     )

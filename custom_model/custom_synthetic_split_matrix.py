@@ -213,6 +213,35 @@ def main():
                 f"| mean|conv_w| = {mean_abs_w:.6f}"
             )
 
+    # ── Run metadata for the plotter/sidecar: dataset identity, the planted motif
+    # (a per-species poly-A / poly-C coin flip per location, so there is no single
+    # MOTIF string), the hyperparameters, and the final-epoch loss values. The
+    # "final" numbers are read from the loop variables still in scope after the loop
+    # (their last-iteration values), so nothing in the training loop above changes. ──
+    metadata = {
+        "dataset": "synthetic",
+        "script": os.path.basename(__file__),
+        "motif": "poly-A/poly-C 50/50 per-species split",
+        "block_len": BLOCK_LEN,
+        "num_blocks": NUM_BLOCKS,
+        "hparams": {
+            "num_epochs": NUM_EPOCHS,
+            "lr": LR,
+            "l1_lambda": L1_LAMBDA,
+            "smooth_sigma": SMOOTH_SIGMA,
+            "seed": SEED,
+            "n_species": N_SPECIES,
+            "seq_len": SEQ_LEN,
+        },
+        "final": {
+            "loss": float(loss.item()),
+            "sd_loss": float(sd_loss.item()),
+            "l1": float(l1_penalty.item()),
+            "raw_mean_col_sd": float(col_std.mean().item()),
+            "within_species_scale": float(within_species_scale.item()),
+        },
+    }
+
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
@@ -224,6 +253,7 @@ def main():
             "epoch": NUM_EPOCHS,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "metadata": metadata,
         },
         weights_path,
     )

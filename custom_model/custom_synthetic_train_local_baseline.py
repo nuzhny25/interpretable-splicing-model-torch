@@ -1,4 +1,9 @@
-"""Synthetic training for the normalized cross-species SD-minimization loss.
+"""Synthetic training with a LOCAL-baseline (excess-conservation) loss.
+
+This is the local-baseline sibling of ``custom_synthetic_train.py`` — identical
+except for how the per-column cross-species SD is normalized — so the two can be
+compared head to head (mirroring the ``custom_real_train.py`` /
+``custom_real_train_local_baseline.py`` pair).
 
 Builds a hardcoded ``10 x 5000`` matrix of aligned sequences (10 "species" rows,
 5000 nucleotides each, no gaps), runs the simplified 20+20-filter model to get a
@@ -11,24 +16,23 @@ where the 10 SR tracks are stacked into a ``(10, num_windows)`` matrix and the
 SD is taken down each column. The rows are therefore coupled only through the
 loss gradient.
 
-The per-column cross-species SD is divided by the within-species dynamic range
-(mean over rows of each row's SD across positions), mirroring the normalization
-in filter_permutations/filter_permutations.py. This makes the loss scale-free:
-shrinking all activations toward zero shrinks the numerator and denominator
-equally, so the trivial "constant SR" collapse no longer lowers the loss.
+Each column's cross-species SD is divided by a per-column local baseline — the
+rolling mean of the column SD over a window of +/-LOCAL_BASELINE_WINDOW positions
+— so the loss measures *excess* conservation: a column only lowers the loss when
+it is more cross-species-consistent than its own local background (the training
+analogue of scoring a column against its local/neutral expectation, as phyloP
+does). Both numerator (the column SD) and denominator (the local baseline) come
+from the same SR track and scale together, so the loss stays scale-free: uniform
+shrinkage of all activations toward a constant does not lower it, and the trivial
+"constant SR" collapse no longer helps.
 """
 
 import logging
 import math
 import os
-import sys
 
 import torch
 import torch.nn.functional as F
-
-# custom_model.py lives in the parent dir (custom_model/); add it to sys.path so
-# this script imports cleanly no matter which directory it's run from.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from custom_model import PNASModel
 
@@ -38,7 +42,7 @@ logger = logging.getLogger(__name__)
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
 N_SPECIES = 10
 SEQ_LEN = 5000
-NUM_EPOCHS = 5000
+NUM_EPOCHS = 10000
 LR = 1e-2
 L1_LAMBDA = (
     1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
@@ -46,11 +50,15 @@ L1_LAMBDA = (
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
+# Half-width (in positions) of the local background window used to normalize each
+# column's cross-species SD. Wide enough for a stable neighborhood estimate, narrow
+# enough to stay local relative to the SEQ_LEN sequence (retune by watching logs).
+LOCAL_BASELINE_WINDOW = 45
 SEED = 0
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
 MOTIF = "AAAAAA"  # sets the conserved block length; blocks are an even poly-A / poly-C split
-NUM_BLOCKS = 10  # number of evenly spaced conserved blocks
+NUM_BLOCKS = 250  # number of evenly spaced conserved blocks
 
 
 def motif_to_indices(motif: str) -> list[int]:
@@ -64,17 +72,15 @@ def make_synthetic_matrix(
     """One-hot ``(n_species, 4, seq_len)``: random rows sharing conserved motifs.
 
     Each row gets an independent random nucleotide background (channel order
-    ACGT). Then conserved blocks are written at ``num_blocks`` evenly spaced,
-    non-overlapping columns — the conserved regions. The blocks are split evenly
-    between all-A and all-C (length ``len(motif)``; the extra block goes to
-    poly-A when ``num_blocks`` is odd) and then shuffled across the positions.
-    Each block is conserved in only 9 of the ``n_species`` rows: one randomly
-    chosen row per block keeps its random background there, so the 9 conserved
-    rows are identical at that column while the odd-one-out (which varies from
-    block to block) differs. Cross-species variation thus lives in the random
-    background plus these per-block dropouts, while the position-varying,
-    near-species-invariant signal is a balanced mix of poly-A and poly-C
-    conserved blocks.
+    ACGT). Then conserved blocks are written into every row at ``num_blocks``
+    evenly spaced, non-overlapping columns — the conserved regions. The blocks
+    are split evenly between all-A and all-C (length ``len(motif)``; the extra
+    block goes to poly-A when ``num_blocks`` is odd) and then shuffled across the
+    positions, but the same choice is written into every row, so all rows are
+    identical at those columns and differ everywhere else. Cross-species
+    variation thus lives only in the random background, while the
+    position-varying, species-invariant signal is a balanced mix of poly-A and
+    poly-C conserved blocks.
     """
     idx = torch.randint(0, 4, (n_species, seq_len), device=device)
 
@@ -89,14 +95,8 @@ def make_synthetic_matrix(
     block_choices = block_choices[torch.randperm(num_blocks)]
 
     starts = torch.linspace(0, seq_len - motif_len, steps=num_blocks).long()
-    all_rows = torch.arange(n_species, device=device)
     for s, block_idx in zip(starts.tolist(), block_choices.tolist()):
-        # Conserve the block in 9 of the n_species rows: one randomly chosen row
-        # keeps its random background here (a lineage-specific loss), so which
-        # species is the odd one out varies from block to block.
-        excluded = torch.randint(0, n_species, (1,)).item()
-        rows = all_rows[all_rows != excluded]
-        idx[rows, s : s + motif_len] = block_idx  # same homopolymer in the other 9 rows
+        idx[:, s : s + motif_len] = block_idx  # same homopolymer in every row
 
     return F.one_hot(idx, num_classes=4).permute(0, 2, 1).float()
 
@@ -116,6 +116,12 @@ def main():
 
     model = PNASModel().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+
+    # Fixed box kernel for the local-baseline rolling mean, built once. Ones of width
+    # 2*W+1; convolved (with zero padding) against col_std for the neighborhood sum and
+    # against a ones vector for the neighbor count, so edge columns average over the
+    # fewer neighbors that actually exist.
+    box_kernel = torch.ones(1, 1, 2 * LOCAL_BASELINE_WINDOW + 1, device=device)
 
     # Fixed Gaussian kernel for smoothing the SR profile along position, built once.
     # Sum-normalized so it's a weighted average (preserves overall scale). It carries
@@ -153,15 +159,27 @@ def main():
         # Numerator: cross-species SD per column (across the 10 rows).
         col_std = sr.std(dim=0)  # (num_windows,)
 
-        # Denominator: within-species dynamic range = each row's SD across
-        # positions, averaged over rows. Dividing by it makes the loss scale-free
-        # (matches filter_permutations/filter_permutations.py), so the model can't
-        # cheat to a low SD by shrinking all activations toward a constant.
-        within_species_scale = sr.std(dim=1).mean()  # scalar
+        # Denominator: per-column LOCAL baseline = rolling mean of col_std over a
+        # +/-LOCAL_BASELINE_WINDOW window of positions. Convolving col_std with the box
+        # kernel gives the neighborhood sum; convolving a ones vector with the same
+        # kernel gives how many columns fell in each window (fewer at the edges under
+        # zero padding), so dividing yields the local mean with edges self-correcting.
+        # Dividing each column by its own baseline makes the loss an excess-conservation
+        # measure (see module docstring); it stays differentiable and scale-free because
+        # the baseline is built from the same col_std as the numerator.
+        local_sum = F.conv1d(
+            col_std.view(1, 1, -1), box_kernel, padding=LOCAL_BASELINE_WINDOW
+        ).view(-1)
+        local_cnt = F.conv1d(
+            torch.ones_like(col_std).view(1, 1, -1),
+            box_kernel,
+            padding=LOCAL_BASELINE_WINDOW,
+        ).view(-1)
+        local_baseline = local_sum / local_cnt.clamp(min=1)
 
         sd_loss = (
-            col_std
-        ).mean() / within_species_scale  # normalized average column SD
+            col_std / (local_baseline + 1e-8)
+        ).mean()  # mean excess-conservation ratio over columns
 
         # L1 penalty on the summed softplus activations (activity sparsity -> peaked,
         # data-driven SR profiles). a_incl/a_skip are already >= 0, so no abs() is
@@ -184,7 +202,7 @@ def main():
                 f"| sd loss = {sd_loss.item():.6f} "
                 f"| l1 = {l1_penalty.item():.6f} "
                 f"| raw mean col SD = {col_std.mean().item():.6f} "
-                f"| within-species scale = {within_species_scale.item():.6f} "
+                f"| mean local baseline = {local_baseline.mean().item():.6f} "
                 f"| mean act = {mean_act:.6f} "
                 f"| mean|conv_w| = {mean_abs_w:.6f}"
             )
@@ -192,19 +210,19 @@ def main():
     # ── Run metadata for the plotter/sidecar: dataset identity, planted motif, the
     # hyperparameters, and the final-epoch loss values. The "final" numbers are read
     # from the loop variables still in scope after the loop (their last-iteration
-    # values), so nothing in the training loop above changes. Here each block is
-    # conserved in only 9/10 species (see make_synthetic_matrix). ──
+    # values), so nothing in the training loop above changes. ──
     metadata = {
         "dataset": "synthetic",
         "script": os.path.basename(__file__),
+        "loss_variant": "local-baseline",
         "motif": MOTIF,
         "num_blocks": NUM_BLOCKS,
-        "conserved_species": f"{N_SPECIES - 1}/{N_SPECIES}",
         "hparams": {
             "num_epochs": NUM_EPOCHS,
             "lr": LR,
             "l1_lambda": L1_LAMBDA,
             "smooth_sigma": SMOOTH_SIGMA,
+            "local_baseline_window": LOCAL_BASELINE_WINDOW,
             "seed": SEED,
             "n_species": N_SPECIES,
             "seq_len": SEQ_LEN,
@@ -214,16 +232,17 @@ def main():
             "sd_loss": float(sd_loss.item()),
             "l1": float(l1_penalty.item()),
             "raw_mean_col_sd": float(col_std.mean().item()),
-            "within_species_scale": float(within_species_scale.item()),
+            "mean_local_baseline": float(local_baseline.mean().item()),
         },
     }
 
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
+    # Distinct filename so it does not clobber custom_synthetic_train.py's custom_model.pt.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "custom_model.pt")
+    weights_path = os.path.join(weights_dir, "synthetic_local_baseline_weights.pt")
     torch.save(
         {
             "epoch": NUM_EPOCHS,
