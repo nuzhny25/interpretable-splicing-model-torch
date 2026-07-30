@@ -1,7 +1,6 @@
 import logging
 
 import torch.nn as nn
-import torch.nn.functional as F
 import torch
 
 logger = logging.getLogger(__name__)
@@ -76,8 +75,8 @@ class PNASModel(nn.Module):
             ``return_activations`` is True, instead returns the tuple
             ``(sr, a_incl, a_skip)``.
         """
-        a_incl = torch.tanh(F.softplus(self.conv_incl(x_seq))).sum(dim=1)
-        a_skip = torch.tanh(F.softplus(self.conv_skip(x_seq))).sum(dim=1)
+        a_incl = torch.sigmoid(self.conv_incl(x_seq)).sum(dim=1)
+        a_skip = torch.sigmoid(self.conv_skip(x_seq)).sum(dim=1)
         sr = a_incl - a_skip
         if return_activations:
             return sr, a_incl, a_skip

@@ -1,9 +1,8 @@
 """Synthetic training for the normalized cross-species abs-dev-minimization loss.
 
 Builds a hardcoded ``10 x 5000`` matrix of aligned sequences (10 "species" rows,
-5000 nucleotides each, no gaps), runs the simplified 20+20-filter model — whose
-per-filter activations are tanh-capped to ``[0, 1)`` (``tanh(softplus(conv))``) —
-to get a per-position SR-balance track for each row, and minimizes a normalized
+5000 nucleotides each, no gaps), runs the simplified 20+20-filter model to get a
+per-position SR-balance track for each row, and minimizes a normalized
 cross-species mean absolute deviation.
 
 The model processes the 10 rows as an independent batch — it never sees that
@@ -12,9 +11,10 @@ where the 10 SR tracks are stacked into a ``(10, num_windows)`` matrix and the
 mean absolute deviation is taken down each column. The rows are therefore coupled
 only through the loss gradient.
 
-The per-column cross-species abs-dev is divided by the within-species dynamic range
-(mean over rows of each row's abs-dev across positions), mirroring the normalization
-in filter_permutations/filter_permutations.py. This makes the loss scale-free:
+The per-column cross-species mean absolute deviation is divided by the
+within-species dynamic range (mean over rows of each row's mean absolute deviation
+across positions), mirroring the SD normalization in
+filter_permutations/filter_permutations.py. This makes the loss scale-free:
 shrinking all activations toward zero shrinks the numerator and denominator
 equally, so the trivial "constant SR" collapse no longer lowers the loss.
 """
@@ -26,7 +26,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from custom_model_capped import PNASModel
+from custom_model import PNASModel
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -36,35 +36,31 @@ N_SPECIES = 10
 SEQ_LEN = 5000
 NUM_EPOCHS = 10000
 LR = 1e-2
-L1_LAMBDA = 1e-2  # strength of L1 penalty on the tanh-capped activations (retune by watching logs)
+L1_LAMBDA = (
+    1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
+)
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
 SEED = 0
-
-# Descriptor of the model's filter-activation / output scheme, recorded in the
-# checkpoint metadata so the plotter can label which variant produced the
-# filters. Set it to match compute_sr_profile's activation: "softplus" for the
-# default (uncapped) model, or e.g. "capped-tanh" / "capped-sigmoid" when the
-# per-filter activations are capped to [0, 1].
-MODEL_TYPE = "capped-tanh"
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
 # Motifs to plant as the conserved blocks. Type in whatever sequences you want
 # conserved (ACGT, any length, may be mixed lengths). Blocks are distributed as
 # evenly as possible across this list and shuffled across positions; the same
 # motif is written into every row, so all rows match at the conserved columns.
-MOTIFS = ["AAAATA", "CCGGCC"]
+MOTIFS = ["CCGGCC", "AAAATA"]
 NUM_BLOCKS = 30  # number of evenly spaced conserved blocks
 
 # Background: instead of an independent random background per species, all species start
 # from one shared ancestral sequence tiled into blocks of BG_BLOCK_LEN. Within each block
-# each species independently marks BG_MUTABLE_PER_BLOCK positions mutable; each mutable
-# position is resampled from all 4 bases with prob BG_MUT_PROB (so it may stay the same).
-# This yields a partially conserved, MALAT1-like background instead of pure noise.
+# each species independently marks BG_MUTABLE_PER_BLOCK positions mutable; every mutable
+# position is then resampled uniformly from all 4 bases (equal instantaneous rate into each
+# base, so a 1/4 chance of drawing the base it already is — a silent mutation — and a 3/4
+# effective substitution rate). This yields a partially conserved, MALAT1-like background
+# instead of pure noise.
 BG_BLOCK_LEN = 6
 BG_MUTABLE_PER_BLOCK = 3
-BG_MUT_PROB = 0.25
 
 
 def motif_to_indices(motif: str) -> list[int]:
@@ -81,8 +77,9 @@ def make_synthetic_matrix(
     order ACGT) copied into every row, then lightly mutated per species: the
     sequence is tiled into blocks of ``BG_BLOCK_LEN``, and within each block each
     species independently marks ``BG_MUTABLE_PER_BLOCK`` of the positions mutable
-    and resamples each mutable position from all 4 bases with probability
-    ``BG_MUT_PROB`` (so it may land on the same base). Then conserved blocks are
+    and resamples every mutable position uniformly from all 4 bases (equal rate into
+    each base, so a 1/4 chance of landing on the base it already is and a 3/4
+    effective substitution rate). Then conserved blocks are
     written into every row at ``num_blocks`` evenly spaced, non-overlapping
     columns — the conserved regions. Each block is assigned one motif from
     ``motifs`` (distributed as evenly as possible across the list, then shuffled
@@ -100,8 +97,8 @@ def make_synthetic_matrix(
     # Per-species, per-block mutation. Tile into blocks of BG_BLOCK_LEN (any trailing
     # < BG_BLOCK_LEN positions stay unmutated). For each (species, block), mark
     # BG_MUTABLE_PER_BLOCK positions mutable via top-k over random scores — an independent
-    # random choice per species and per block — then resample each mutable position from
-    # all 4 bases with probability BG_MUT_PROB.
+    # random choice per species and per block — then resample every mutable position
+    # uniformly from all 4 bases (a 1/4 chance of drawing the same base, 3/4 substitution).
     n_bg_blocks = seq_len // BG_BLOCK_LEN
     if n_bg_blocks:
         tiled = n_bg_blocks * BG_BLOCK_LEN
@@ -110,10 +107,10 @@ def make_synthetic_matrix(
         mutable.scatter_(-1, scores.topk(BG_MUTABLE_PER_BLOCK, dim=-1).indices, True)
         mutable = mutable.reshape(n_species, tiled)
 
+        # Every mutable position is resampled (no probability gate); the uniform draw over
+        # all 4 bases supplies the 1/4 chance of landing on the base it already is.
         mut_event = torch.zeros(n_species, seq_len, dtype=torch.bool, device=device)
-        mut_event[:, :tiled] = mutable & (
-            torch.rand(n_species, tiled, device=device) < BG_MUT_PROB
-        )
+        mut_event[:, :tiled] = mutable
         resampled = torch.randint(0, 4, (n_species, seq_len), device=device)
         idx[mut_event] = resampled[mut_event]
 
@@ -148,7 +145,7 @@ def main():
         f"Synthetic matrix: {tuple(x.shape)} on {device} — "
         f"{NUM_BLOCKS} conserved blocks drawn evenly from motifs {MOTIFS}; "
         f"shared ancestral background, blocks of {BG_BLOCK_LEN}, "
-        f"{BG_MUTABLE_PER_BLOCK}/{BG_BLOCK_LEN} mutable @ p={BG_MUT_PROB}"
+        f"{BG_MUTABLE_PER_BLOCK}/{BG_BLOCK_LEN} mutable, resampled uniformly over 4 bases"
     )
 
     model = PNASModel().to(device)
@@ -172,8 +169,24 @@ def main():
         )
 
     for epoch in range(1, NUM_EPOCHS + 1):
+        # On the first iteration, dump the (constant) synthetic matrix as one nucleotide
+        # string per species so the planted motifs and the mutated background can be
+        # inspected by eye. Rows are un-prefixed so column N lines up across every row.
+        if epoch == 1:
+            seq_idx = x.argmax(dim=1)  # (n_species, seq_len) base indices
+            matrix_path = os.path.join(
+                os.path.dirname(__file__), "synthetic_matrix_realistic.txt"
+            )
+            with open(matrix_path, "w") as f:
+                f.write(
+                    f"# Synthetic realistic matrix ({N_SPECIES} species x {SEQ_LEN} nt)\n"
+                )
+                for row in seq_idx.tolist():
+                    f.write("".join(NUCLEOTIDES[i] for i in row) + "\n")
+            logger.info(f"Wrote synthetic matrix to {matrix_path}")
+
         optimizer.zero_grad()
-        # a_incl / a_skip are the raw (unsmoothed) summed tanh-capped activations,
+        # a_incl / a_skip are the raw (unsmoothed) summed softplus activations,
         # both (10, num_windows) and >= 0; used by the activation L1 penalty below.
         sr, a_incl, a_skip = model.compute_sr_profile(x, return_activations=True)
 
@@ -203,10 +216,10 @@ def main():
         )  # scalar
 
         sd_loss = (
-            (col_std + 0.1).mean()
+            (col_std).mean()
         ) / within_species_scale  # normalized average column abs-dev
 
-        # L1 penalty on the summed tanh-capped activations (activity sparsity -> peaked,
+        # L1 penalty on the summed softplus activations (activity sparsity -> peaked,
         # data-driven SR profiles). a_incl/a_skip are already >= 0, so no abs() is
         # needed; .mean() keeps the penalty independent of seq length / batch size.
 
@@ -239,7 +252,6 @@ def main():
     metadata = {
         "dataset": "synthetic",
         "script": os.path.basename(__file__),
-        "model_type": MODEL_TYPE,
         "motifs": MOTIFS,
         "num_blocks": NUM_BLOCKS,
         "hparams": {
@@ -252,7 +264,6 @@ def main():
             "seq_len": SEQ_LEN,
             "bg_block_len": BG_BLOCK_LEN,
             "bg_mutable_per_block": BG_MUTABLE_PER_BLOCK,
-            "bg_mut_prob": BG_MUT_PROB,
         },
         "final": {
             "loss": float(loss.item()),
@@ -268,7 +279,7 @@ def main():
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "custom_model_capped.pt")
+    weights_path = os.path.join(weights_dir, "custom_model_absolute_deviation.pt")
     torch.save(
         {
             "epoch": NUM_EPOCHS,

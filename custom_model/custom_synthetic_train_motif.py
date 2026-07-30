@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
 N_SPECIES = 10
 SEQ_LEN = 5000
-NUM_EPOCHS = 10000
+NUM_EPOCHS = 1000
 LR = 1e-2
 L1_LAMBDA = (
     1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
@@ -49,7 +49,7 @@ NUCLEOTIDES = ["A", "C", "G", "T"]
 # evenly as possible across this list and shuffled across positions; the same
 # motif is written into every row, so all rows match at the conserved columns.
 MOTIFS = ["ACGTAC", "CCGGCC"]
-NUM_BLOCKS = 300  # number of evenly spaced conserved blocks
+NUM_BLOCKS = 30  # number of evenly spaced conserved blocks
 
 
 def motif_to_indices(motif: str) -> list[int]:

@@ -47,7 +47,7 @@ NUCLEOTIDES = ["A", "C", "G", "T"]
 MOTIF = (
     "AAAA"  # sets the conserved block length; blocks are an even poly-A / poly-C split
 )
-NUM_BLOCKS = 250  # number of evenly spaced conserved blocks
+NUM_BLOCKS = 300  # number of evenly spaced conserved blocks
 
 
 def motif_to_indices(motif: str) -> list[int]:

@@ -1,4 +1,4 @@
-"""Real cross-species training for the normalized SD-minimization loss.
+"""Real cross-species training for the normalized abs-dev-minimization loss.
 
 Loads the real MALAT1 multiz alignment matrix (``data/multiz100/alignment_matrix.npy``,
 shape ``(n_aligned, n_species)`` of single characters with ``A/C/G/T`` plus
@@ -13,18 +13,20 @@ scattered back into alignment coordinates at the aligned column of the window's
 nucleotides that never start a full window — are left absent (conceptually NaN).
 
 This produces a ``(10, n_aligned)`` matrix with NaN at gaps; the loss is the
-NaN-aware cross-species standard deviation taken down each column, restricted to
-columns where at least ``MIN_SPECIES`` of the 10 sampled species are present.
+NaN-aware cross-species mean absolute deviation taken down each column, restricted
+to columns where at least ``MIN_SPECIES`` of the 10 sampled species are present.
 
-The per-column cross-species SD is divided by the within-species dynamic range
-(mean over rows of each row's SD across positions), mirroring the normalization
-in filter_permutations/filter_permutations.py. This makes the loss scale-free:
+The per-column cross-species mean absolute deviation is divided by the
+within-species dynamic range (mean over rows of each row's mean absolute deviation
+across positions), mirroring the SD normalization in
+filter_permutations/filter_permutations.py. This makes the loss scale-free:
 shrinking all activations toward zero shrinks the numerator and denominator
 equally, so the trivial "constant SR" collapse no longer lowers the loss.
 
 The NaN matrix is implemented as a ``values`` + ``mask`` pair rather than literal
 NaN, so gradients stay finite: masked entries contribute 0 and receive no
-gradient, exactly matching ``np.nanstd(..., ddof=1)`` over the non-NaN entries.
+gradient, exactly matching a NaN-aware mean absolute deviation over the non-NaN
+entries.
 """
 
 import logging
@@ -50,7 +52,7 @@ MIN_SPECIES = 5  # a column counts toward the loss only if >= this many species 
 NUM_EPOCHS = 10000
 LR = 1e-2
 L1_LAMBDA = (
-    1e-3  # strength of L1 penalty on the softplus activations (retune by watching logs)
+    1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
 )
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
@@ -159,28 +161,29 @@ def main():
             values[r, cols] = sr_j
             mask[r, cols] = 1.0
 
-        # Numerator: NaN-aware cross-species SD per column (ddof=1), valid only where
-        # at least MIN_SPECIES of the sampled species are present.
+        # Numerator: NaN-aware cross-species mean absolute deviation per column
+        # (about each column's cross-species mean), valid only where at least
+        # MIN_SPECIES of the sampled species are present. Masked-out entries are
+        # zeroed *after* the abs() so they contribute 0 and receive no gradient.
         count = mask.sum(0)  # (n_aligned,)
         col_mean = (values * mask).sum(0) / count.clamp(min=1)
-        col_var = (((values - col_mean) ** 2) * mask).sum(0) / (count - 1).clamp(min=1)
-        col_std = torch.sqrt(col_var + 1e-8)
+        col_std = ((values - col_mean).abs() * mask).sum(0) / count.clamp(min=1)
         valid = count >= MIN_SPECIES
 
-        # Denominator: within-species dynamic range = each row's SD across positions
-        # (NaN-aware, ddof=1), averaged over rows. Dividing by it makes the loss
-        # scale-free (matches filter_permutations/filter_permutations.py), so the
-        # model can't cheat to a low SD by shrinking all activations toward a constant.
+        # Denominator: within-species dynamic range = each row's mean absolute
+        # deviation across positions (NaN-aware, about that row's own mean), averaged
+        # over rows. Dividing by it makes the loss scale-free (matches
+        # filter_permutations/filter_permutations.py), so the model can't cheat to a
+        # low abs-dev by shrinking all activations toward a constant.
         rc = mask.sum(1)  # (N_SAMPLE,)
         row_mean = (values * mask).sum(1) / rc.clamp(min=1)
-        row_var = (((values - row_mean.unsqueeze(1)) ** 2) * mask).sum(1) / (
-            rc - 1
-        ).clamp(min=1)
-        within_species_scale = torch.sqrt(row_var + 1e-8).mean()  # scalar
+        within_species_scale = (
+            ((values - row_mean.unsqueeze(1)).abs() * mask).sum(1) / rc.clamp(min=1)
+        ).mean()  # scalar
 
         sd_loss = (
             (col_std[valid] + 0.1) / within_species_scale
-        ).mean()  # normalized average column SD
+        ).mean()  # normalized average column abs-dev
 
         # L1 penalty on the summed softplus activations (activity sparsity -> peaked,
         # data-driven SR profiles). a_incl/a_skip are already >= 0, so no abs() is
@@ -200,7 +203,7 @@ def main():
                 f"epoch {epoch:4d} | loss = {loss.item():.6f} "
                 f"| sd loss = {sd_loss.item():.6f} "
                 f"| l1 = {l1_penalty.item():.6f} "
-                f"| raw mean col SD = {col_std[valid].mean().item():.6f} "
+                f"| raw mean col abs-dev = {col_std[valid].mean().item():.6f} "
                 f"| within-species scale = {within_species_scale.item():.6f} "
                 f"| valid cols = {int(valid.sum().item())} "
                 f"| mean|conv_w| = {mean_abs_w:.6f}"
@@ -239,7 +242,7 @@ def main():
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "real_weights.pt")
+    weights_path = os.path.join(weights_dir, "real_weights_aad.pt")
     torch.save(
         {
             "epoch": NUM_EPOCHS,

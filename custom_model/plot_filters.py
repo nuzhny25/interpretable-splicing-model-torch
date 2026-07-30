@@ -3,8 +3,9 @@
 Loads weights saved by custom_real_train.py (``weights/custom_model.pt`` by
 default), prints each learned conv filter's consensus motif (the argmax
 nucleotide at every kernel position), renders every INCL/SKIP filter as a
-heat map, and renders each filter as an enrichment/depletion logo (EDLogo)
-built from the 6-mers it maximally activates on (see experiment/filter_max_scan.py).
+heat map, and renders each filter as an information-content (bits) sequence logo
+built from the 6-mers whose softplus activation reaches at least a fraction (default
+half, see --logo-activation-frac) of that filter's peak (see experiment/filter_max_scan.py).
 Real cross-species training has no planted motif, so the readout is
 motif-agnostic: it reports what each filter converged to rather than scoring it
 against a known target.
@@ -82,16 +83,25 @@ def main():
     parser.add_argument(
         "--logos",
         default=os.path.join(_HERE, "filter_logos.png"),
-        help="Output path for the enrichment/depletion (EDLogo) figure, built "
-        "from each filter's top-4 max-activating 6-mers.",
+        help="Output path for the information-content (bits) logo figure, built from "
+        "each filter's above-threshold max-activating 6-mers (see --logo-activation-frac).",
     )
     parser.add_argument(
         "--min-contribution-frac",
         type=float,
-        default=0.05,
-        help="Only render EDLogos for filters whose peak softplus activation is at "
+        default=0.2,
+        help="Only render logos for filters whose peak softplus activation is at "
         "least this fraction of the strongest filter's peak (default: 0.05, i.e. "
         "5 percent of the strongest). Use 0 to show every filter.",
+    )
+    parser.add_argument(
+        "--logo-activation-frac",
+        type=float,
+        default=0.75,
+        help="Per filter, build its logo from every 6-mer whose softplus activation is "
+        "at least this fraction of that filter's own peak activation (default: 0.5 = "
+        "half-max, matching experiment/filter_max_scan.py). Higher = fewer, sharper "
+        "6-mers.",
     )
     parser.add_argument(
         "--meta-out",
@@ -248,18 +258,19 @@ def main():
     plt.close(fig)
     logger.info(f"Wrote {2 * num_filters} filter heat maps to {args.out}")
 
-    # ── Plot each *significant* filter as an enrichment/depletion logo (EDLogo) built
-    # from the 6-mers it maximally activates on, mirroring experiment/filter_max_scan.py.
+    # ── Plot each *significant* filter as an information-content (bits) sequence logo
+    # built from the 6-mers it maximally activates on, mirroring experiment/filter_max_scan.py.
     # Because the kernel (6) spans the whole input window, a filter's response over
-    # every possible input is an exhaustive scan of the 4**6 = 4096 six-mers. For
-    # each filter we take the top 4 highest-output 6-mers and turn their base
-    # composition into letter heights: log2(freq / 0.25 uniform background) — bases
-    # the top hits are enriched for sit above the axis, depleted below. A Jeffreys
-    # pseudocount (0.5) avoids log2(0) and keeps the scale symmetric (a base in
-    # exactly 1 of the 4 hits maps to 0 = uniform). Each logo autoscales to its own
-    # y-range so weak filters stay readable, and the peak softplus output is printed
-    # per panel. The all-6-mers one-hot encoding is identical for every filter, so
-    # build it once.
+    # every possible input is an exhaustive scan of the 4**6 = 4096 six-mers. For each
+    # filter we keep every 6-mer whose softplus activation reaches --logo-activation-frac
+    # of that filter's own peak (default 0.5 = the half-max set), then turn the base
+    # composition of that above-threshold set into a standard Shannon information logo:
+    # per-position frequencies with no pseudocount (so a base absent from every selected
+    # 6-mer stays exactly 0 and draws no letter — present nucleotides only), scaled by the
+    # column's information content 2 + Σ f·log2 f (max 2 bits for a fully conserved
+    # column, ~0 for a uniform one). Letter heights are all >= 0, so nothing sits below
+    # the axis. The number of selected 6-mers and the peak softplus are printed per panel.
+    # The all-6-mers one-hot encoding is identical for every filter, so build it once.
     #
     # A filter's contribution to the model output is its softplus activation
     # (compute_sr_profile sums softplus over the 20 filters), so its peak softplus
@@ -268,12 +279,10 @@ def main():
     # whose peak reaches --min-contribution-frac of the single strongest filter's
     # peak (softplus outputs are directly comparable across the INCL and SKIP banks),
     # strongest-first within each bank. ──
-    all_seqs = [
-        "".join(p) for p in itertools.product(DNA_ALPHABET, repeat=kernel_size)
-    ]
+    all_seqs = ["".join(p) for p in itertools.product(DNA_ALPHABET, repeat=kernel_size)]
     onehot = one_hot_batch(all_seqs)  # (4096, 4, kernel_size)
 
-    # First pass: per-filter top-4 6-mers, enrichment matrix, and peak softplus.
+    # First pass: per-filter above-threshold 6-mers, information-content matrix, and peak.
     filter_logos = {name: [] for name, _ in convs}
     for name, conv in convs:
         weight = conv.weight.detach().cpu().numpy()
@@ -285,19 +294,31 @@ def main():
             # ranking, only the reported peak value.
             raw = np.einsum("ncp,cp->n", onehot, weight[filter_idx]) + bias[filter_idx]
             outputs = np.logaddexp(0.0, raw)  # softplus, numerically stable
-            top4_idx = np.argsort(-outputs)[:4]
-            top4_seqs = [all_seqs[i] for i in top4_idx]
+            peak = float(outputs.max())
+            thresh = args.logo_activation_frac * peak
+            # Every 6-mer reaching the fraction of this filter's peak (>=1: the peak
+            # itself always passes), strongest-first — the half-max set at frac=0.5.
+            sel_idx = [i for i in np.argsort(-outputs) if outputs[i] >= thresh]
+            sel_seqs = [all_seqs[i] for i in sel_idx]
+            n_sel = len(sel_seqs)
 
-            # Base composition of the top-4 hits → enrichment vs uniform background.
-            counts = one_hot_batch(top4_seqs).sum(axis=0)  # (4, kernel_size)
-            freq = (counts + 0.5) / (4 + 4 * 0.5)  # Jeffreys pseudocount 0.5
-            enrichment = np.log2(freq / 0.25)  # up = enriched, down = depleted
+            # Per-position base frequencies of the above-threshold 6-mers. No pseudocount,
+            # so nucleotides absent from every selected 6-mer stay exactly 0 (no letter).
+            counts = one_hot_batch(sel_seqs).sum(axis=0)  # (4, kernel_size)
+            freq = counts / n_sel  # each column sums to 1
+            # Shannon information content per position (bits): 2 + Σ f·log2 f, max 2 for a
+            # fully conserved column, ~0 for a uniform one. Letter height = freq * info.
+            info = 2.0 + np.sum(
+                np.where(freq > 0, freq * np.log2(freq, where=freq > 0), 0.0), axis=0
+            )
+            heights = freq * info[None, :]  # (4, kernel_size), all >= 0
             filter_logos[name].append(
                 {
                     "filter_idx": filter_idx,
                     "bias": float(bias[filter_idx]),
-                    "peak": float(outputs[top4_idx[0]]),
-                    "enrichment": enrichment,
+                    "peak": peak,
+                    "n_sel": n_sel,
+                    "heights": heights,
                 }
             )
 
@@ -351,18 +372,18 @@ def main():
         for i, d in enumerate(kept[name]):
             ax = axes[row_offset + i // n_cols][i % n_cols]
             ax.axis("on")
-            df = pd.DataFrame(d["enrichment"].T, columns=NUCLEOTIDES)
+            df = pd.DataFrame(d["heights"].T, columns=NUCLEOTIDES)
             logomaker.Logo(
                 df,
                 ax=ax,
-                flip_below=False,  # keep depleted letters upright, below the axis
-                color_scheme="classic",
-                shade_below=0.0,
-                fade_below=0.0,
+                color_scheme="classic",  # heights are all >= 0: nothing below the axis
             )
-            ax.axhline(0, color="k", lw=0.8)
+            ax.set_ylim(0, 2)  # standard information-content scale (bits), comparable
+            if i % n_cols == 0:
+                ax.set_ylabel("bits", fontsize=6)
             ax.set_title(
-                f"{name} #{d['filter_idx']}  b={d['bias']:+.2f}  max={d['peak']:.2f}",
+                f"{name} #{d['filter_idx']}  b={d['bias']:+.2f}  "
+                f"max={d['peak']:.2f}  n={d['n_sel']}",
                 fontsize=8,
             )
             ax.set_xticks(range(kernel_size))
@@ -391,10 +412,11 @@ def main():
     # Two-line suptitle inside the reserved top band (keeps it narrow so a few-panel
     # figure isn't forced ultra-wide, and clear of the top row's panel titles).
     fig.suptitle(
-        "conv_incl / conv_skip EDLogos from top-4 max-activating 6-mers\n"
+        "conv_incl / conv_skip information-content (bits) logos\n"
         f"({num_kept}/{num_total} filters, peak softplus >= "
-        f"{args.min_contribution_frac:g}x strongest; up = enriched, down = depleted; "
-        f"per-filter y-scale)",
+        f"{args.min_contribution_frac:g}x strongest; from 6-mers >= "
+        f"{args.logo_activation_frac:g}x each filter's peak activation; "
+        f"present nucleotides only)",
         y=1 - 0.12 * header_in / fig_h,
         va="top",
         fontsize=10,
@@ -412,7 +434,7 @@ def main():
     )
     fig.savefig(args.logos, dpi=150, bbox_inches="tight")
     plt.close(fig)
-    logger.info(f"Wrote {num_kept} filter EDLogos to {args.logos}")
+    logger.info(f"Wrote {num_kept} filter logos to {args.logos}")
 
     # ── Sidecar JSON: the full stamped metadata plus provenance (source checkpoint,
     # the figures/text this run produced, and a timestamp), written next to the plots
@@ -429,6 +451,8 @@ def main():
             "heatmap_png": os.path.abspath(args.out),
             "logos_png": os.path.abspath(args.logos),
             "filter_txt": os.path.abspath(args.txt),
+            "logo_activation_frac": args.logo_activation_frac,
+            "min_contribution_frac": args.min_contribution_frac,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
         },
     }

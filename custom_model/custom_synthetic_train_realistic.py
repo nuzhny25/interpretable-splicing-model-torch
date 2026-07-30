@@ -49,7 +49,7 @@ NUCLEOTIDES = ["A", "C", "G", "T"]
 # evenly as possible across this list and shuffled across positions; the same
 # motif is written into every row, so all rows match at the conserved columns.
 MOTIFS = ["AAAAAA", "CCCCCC"]
-NUM_BLOCKS = 300  # number of evenly spaced conserved blocks
+NUM_BLOCKS = 30  # number of evenly spaced conserved blocks
 
 # Background: instead of an independent random background per species, all species start
 # from one shared ancestral sequence tiled into blocks of BG_BLOCK_LEN. Within each block
