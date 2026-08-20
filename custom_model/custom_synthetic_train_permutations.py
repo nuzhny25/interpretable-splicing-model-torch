@@ -1,9 +1,12 @@
 """Synthetic training for the normalized cross-species SD-minimization loss.
 
-Builds a hardcoded ``10 x 5000`` matrix of aligned sequences (10 "species" rows,
-5000 nucleotides each, no gaps), runs the simplified 20+20-filter model to get a
-per-position SR-balance track for each row, and minimizes a normalized
-cross-species standard deviation.
+Builds a hardcoded ``62 x 5000`` matrix of aligned sequences (62 "species" rows,
+5000 nucleotides each, no gaps) **once**, then each epoch samples a fresh random
+combination of 10 rows to train on — mirroring custom_real_train.py, which draws
+10 of the 62 real MALAT1 species per epoch. This lets us verify the sampling-based
+real-training method on data with known planted motifs. For the sampled rows the
+simplified 20+20-filter model produces a per-position SR-balance track, and a
+normalized cross-species standard deviation is minimized.
 
 The model processes the 10 rows as an independent batch — it never sees that
 they form a matrix. The matrix/alignment structure is used only in the loss,
@@ -31,7 +34,8 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
-N_SPECIES = 10
+N_POOL = 62  # size of the generated matrix (matches the real alignment's species count)
+N_SAMPLE = 10  # rows sampled per epoch (matches real_train's N_SAMPLE)
 SEQ_LEN = 5000
 NUM_EPOCHS = 10000
 LR = 1e-2
@@ -136,10 +140,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     x = make_synthetic_matrix(
-        N_SPECIES, SEQ_LEN, MOTIFS, NUM_BLOCKS, device
-    )  # (10, 4, 5000)
+        N_POOL, SEQ_LEN, MOTIFS, NUM_BLOCKS, device
+    )  # (62, 4, 5000)
     logger.info(
         f"Synthetic matrix: {tuple(x.shape)} on {device} — "
+        f"sampling {N_SAMPLE} of {N_POOL} rows/epoch; "
         f"{NUM_BLOCKS} conserved blocks drawn evenly from motifs {MOTIFS}; "
         f"shared ancestral background, blocks of {BG_BLOCK_LEN}, "
         f"{BG_MUTABLE_PER_BLOCK}/{BG_BLOCK_LEN} mutable @ p={BG_MUT_PROB}"
@@ -176,16 +181,25 @@ def main():
             )
             with open(matrix_path, "w") as f:
                 f.write(
-                    f"# Synthetic realistic matrix ({N_SPECIES} species x {SEQ_LEN} nt)\n"
+                    f"# Synthetic realistic matrix ({N_POOL} species x {SEQ_LEN} nt)\n"
                 )
                 for row in seq_idx.tolist():
                     f.write("".join(NUCLEOTIDES[i] for i in row) + "\n")
             logger.info(f"Wrote synthetic matrix to {matrix_path}")
 
         optimizer.zero_grad()
+
+        # Fresh random combination of N_SAMPLE rows from the fixed N_POOL matrix for
+        # this epoch, mirroring custom_real_train.py (sel = torch.randperm(n_total)[:N_SAMPLE]).
+        # The pool matrix x never changes; only which 10 rows the model sees each epoch does.
+        sel = torch.randperm(N_POOL, device=device)[
+            :N_SAMPLE
+        ]  # fresh 10 rows this epoch
+        x_epoch = x[sel]  # (N_SAMPLE, 4, SEQ_LEN)
+
         # a_incl / a_skip are the raw (unsmoothed) summed softplus activations,
         # both (10, num_windows) and >= 0; used by the activation L1 penalty below.
-        sr, a_incl, a_skip = model.compute_sr_profile(x, return_activations=True)
+        sr, a_incl, a_skip = model.compute_sr_profile(x_epoch, return_activations=True)
 
         # Gaussian-smooth each row's SR track along position (independent per row).
         # Reflect-pad by the kernel half-width, then depthwise-style conv1d with the
@@ -251,7 +265,8 @@ def main():
             "l1_lambda": L1_LAMBDA,
             "smooth_sigma": SMOOTH_SIGMA,
             "seed": SEED,
-            "n_species": N_SPECIES,
+            "n_pool": N_POOL,
+            "n_sample": N_SAMPLE,
             "seq_len": SEQ_LEN,
             "bg_block_len": BG_BLOCK_LEN,
             "bg_mutable_per_block": BG_MUTABLE_PER_BLOCK,

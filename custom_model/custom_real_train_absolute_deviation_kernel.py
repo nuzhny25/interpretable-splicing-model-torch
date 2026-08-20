@@ -1,5 +1,12 @@
 """Real cross-species training for the normalized abs-dev-minimization loss.
 
+Kernel-8 variant: identical to ``custom_real_train_absolute_deviation.py`` but imports
+the wider-filter model from ``custom_model_kernel`` (``seq_kernel_size = 8``) instead of
+the default kernel-6 ``custom_model``. The alignment data and loss are unchanged; only
+the model's filter width differs, so this is a clean A/B on kernel size. The trained
+weights are written to a kernel-8-suffixed path so the kernel-6 checkpoint is not
+clobbered.
+
 Loads the real MALAT1 multiz alignment matrix (``data/multiz100/alignment_matrix.npy``,
 shape ``(n_aligned, n_species)`` of single characters with ``A/C/G/T`` plus
 lowercase soft-masked ``a/c/g/t`` and the gap symbols ``-`` / ``N``). Each epoch
@@ -7,7 +14,7 @@ trains on a fresh random combination of 10 species drawn from the alignment.
 
 For every sampled species the SR-balance profile is computed by the simplified
 20+20-filter model on that species' gap-removed sequence (gaps are ``-`` and
-``N``; lowercase letters are nucleotides). Each 6-nt sliding-window value is then
+``N``; lowercase letters are nucleotides). Each 8-nt sliding-window value is then
 scattered back into alignment coordinates at the aligned column of the window's
 *first* nucleotide. Aligned columns that are gaps in a species — and the trailing
 nucleotides that never start a full window — are left absent (conceptually NaN).
@@ -37,7 +44,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from custom_model import PNASModel
+from custom_model_kernel import PNASModel
 from custom_utils import str_to_vector
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -47,8 +54,8 @@ logger = logging.getLogger(__name__)
 MATRIX_PATH = os.path.join(
     os.path.dirname(__file__), "..", "data", "multiz100", "alignment_matrix.npy"
 )
-N_SAMPLE = 62  # number of species sampled per epoch
-MIN_SPECIES = 30  # a column counts toward the loss only if >= this many species present
+N_SAMPLE = 10  # number of species sampled per epoch
+MIN_SPECIES = 5  # a column counts toward the loss only if >= this many species present
 NUM_EPOCHS = 10000
 LR = 1e-2
 L1_LAMBDA = 0.002  # strength of L1 penalty on the softplus activations (retune by watching logs)
@@ -113,18 +120,6 @@ def main():
             f"kernel size={gauss_kernel.shape[-1]}"
         )
 
-    # Running sums of the per-epoch loss statistics over the first 10 epochs, so the
-    # metadata can report the early-training average (a snapshot of the from-scratch
-    # starting regime) alongside the final-epoch values.
-    first10_sums = {
-        "loss": 0.0,
-        "sd_loss": 0.0,
-        "l1": 0.0,
-        "raw_mean_col_sd": 0.0,
-        "within_species_scale": 0.0,
-    }
-    n_first10 = 0
-
     for epoch in range(1, NUM_EPOCHS + 1):
         optimizer.zero_grad()
 
@@ -145,11 +140,11 @@ def main():
         act_count = 0
         for r, j in enumerate(sel.tolist()):
             # a_incl / a_skip are the raw (unsmoothed) summed softplus activations,
-            # both (1, Lj-5) and >= 0; used by the activation L1 penalty below.
+            # both (1, Lj-7) and >= 0; used by the activation L1 penalty below.
             sr_j, a_incl, a_skip = model.compute_sr_profile(
                 species_oh[j], return_activations=True
             )
-            sr_j = sr_j.squeeze(0)  # (Lj-5,)
+            sr_j = sr_j.squeeze(0)  # (Lj-7,)
             act_sum = act_sum + (a_incl + a_skip).sum()
             act_count += a_incl.numel()
 
@@ -204,15 +199,6 @@ def main():
         loss.backward()
         optimizer.step()
 
-        # Accumulate the first-10-epoch statistics for the metadata average below.
-        if epoch <= 10:
-            first10_sums["loss"] += loss.item()
-            first10_sums["sd_loss"] += sd_loss.item()
-            first10_sums["l1"] += l1_penalty.item()
-            first10_sums["raw_mean_col_sd"] += col_std[valid].mean().item()
-            first10_sums["within_species_scale"] += within_species_scale.item()
-            n_first10 += 1
-
         if epoch == 1 or epoch % 10 == 0:
             mean_abs_w = (
                 model.conv_incl.weight.abs().mean().item()
@@ -233,8 +219,6 @@ def main():
     # loss values. The "final" numbers are read from the loop variables still in scope
     # after the loop (their last-iteration values), so nothing in the training loop
     # above changes; raw_mean_col_sd is over valid columns to match the training log. ──
-    # Average of each statistic over the first min(10, NUM_EPOCHS) epochs.
-    first_10_epochs_avg = {k: v / n_first10 for k, v in first10_sums.items()}
     metadata = {
         "dataset": "real",
         "script": os.path.basename(__file__),
@@ -256,15 +240,14 @@ def main():
             "raw_mean_col_sd": float(col_std[valid].mean().item()),
             "within_species_scale": float(within_species_scale.item()),
         },
-        "first_10_epochs_avg": first_10_epochs_avg,
     }
 
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
-    # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
+    # so it can be reloaded by plot_filters_kernel.py and PNASModel.load_partial_state_dict.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "real_weights_aad.pt")
+    weights_path = os.path.join(weights_dir, "real_weights_aad_kernel8.pt")
     torch.save(
         {
             "epoch": NUM_EPOCHS,

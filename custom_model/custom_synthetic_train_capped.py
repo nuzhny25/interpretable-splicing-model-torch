@@ -42,6 +42,24 @@ SMOOTH_SIGMA = (
 )
 SEED = 0
 
+# ── Per-filter gain settings (see PNASModel.filter_gains) ────────────────────
+GAIN_TEMP = 1.0  # softmax temperature; larger = flatter, slower reallocation
+GAIN_FLOOR = 0.02  # minimum gain per filter, so starved filters keep a gradient
+# Epochs to hold the gain logits frozen at zero (uniform gains) before letting the
+# filters compete. Without this the allocation starts moving from epoch 1, when
+# marginal utility is dominated by random init, and a couple of filters can starve
+# the rest before any of them has found a motif. Training during the freeze is
+# identical to the ungained model. 0 disables.
+GAIN_FREEZE_EPOCHS = 500
+# Strength of the entropy penalty on the gain allocation. The gains form a
+# probability vector (g / num_filters), so its entropy H measures how spread out
+# the budget is; adding +lambda*H to the loss rewards *low* entropy, i.e. a peaked
+# allocation on few filters. Entropy on the simplex is inherently scale-free, so it
+# fits the scale-free abs-dev loss without reintroducing a shrink-to-zero direction.
+# 0 disables — the softmax competition already produces some sparsity on its own,
+# so turn this on only if the logged effective-filter count stays too high.
+GAIN_ENTROPY_LAMBDA = 0.0
+
 # Descriptor of the model's filter-activation / output scheme, recorded in the
 # checkpoint metadata so the plotter can label which variant produced the
 # filters. Set it to match compute_sr_profile's activation: "softplus" for the
@@ -151,8 +169,28 @@ def main():
         f"{BG_MUTABLE_PER_BLOCK}/{BG_BLOCK_LEN} mutable @ p={BG_MUT_PROB}"
     )
 
-    model = PNASModel().to(device)
+    model = PNASModel(gain_temp=GAIN_TEMP, gain_floor=GAIN_FLOOR).to(device)
+    # Adam's default weight_decay=0 matters here: decay on the gain logits would pull
+    # them back toward zero, which is exactly the uniform allocation — an anti-sparsity
+    # prior working against the competition the gains are meant to create.
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+
+    # Hold the gain logits at their zero init (uniform gains of 1.0) for the first
+    # GAIN_FREEZE_EPOCHS epochs. Params with requires_grad=False get no .grad, and Adam
+    # skips them, so the frozen phase trains exactly like the ungained model.
+    if GAIN_FREEZE_EPOCHS:
+        model.gain_logit_incl.requires_grad_(False)
+        model.gain_logit_skip.requires_grad_(False)
+        logger.info(
+            f"Per-filter gains: temp={GAIN_TEMP}, floor={GAIN_FLOOR}, "
+            f"entropy lambda={GAIN_ENTROPY_LAMBDA} — logits frozen for the first "
+            f"{GAIN_FREEZE_EPOCHS} epochs"
+        )
+    else:
+        logger.info(
+            f"Per-filter gains: temp={GAIN_TEMP}, floor={GAIN_FLOOR}, "
+            f"entropy lambda={GAIN_ENTROPY_LAMBDA} — logits trainable from epoch 1"
+        )
 
     # Fixed Gaussian kernel for smoothing the SR profile along position, built once.
     # Sum-normalized so it's a weighted average (preserves overall scale). It carries
@@ -173,8 +211,18 @@ def main():
 
     for epoch in range(1, NUM_EPOCHS + 1):
         optimizer.zero_grad()
-        # a_incl / a_skip are the raw (unsmoothed) summed tanh-capped activations,
+
+        # End of the frozen phase: let the filters start competing for gain budget.
+        if GAIN_FREEZE_EPOCHS and epoch == GAIN_FREEZE_EPOCHS + 1:
+            model.gain_logit_incl.requires_grad_(True)
+            model.gain_logit_skip.requires_grad_(True)
+            logger.info(f"epoch {epoch:4d} | gain logits unfrozen")
+
+        # a_incl / a_skip are the raw (unsmoothed), *ungained* summed activations,
         # both (10, num_windows) and >= 0; used by the activation L1 penalty below.
+        # Ungained on purpose: a penalty on the gain-weighted sum would be minimized
+        # by parking the gain budget on the least active filter, so the activity tax
+        # would end up steering the allocation onto dead filters.
         sr, a_incl, a_skip = model.compute_sr_profile(x, return_activations=True)
 
         # Gaussian-smooth each row's SR track along position (independent per row).
@@ -203,7 +251,7 @@ def main():
         )  # scalar
 
         sd_loss = (
-            (col_std + 0.1).mean()
+            (col_std).mean()
         ) / within_species_scale  # normalized average column abs-dev
 
         # L1 penalty on the summed tanh-capped activations (activity sparsity -> peaked,
@@ -212,7 +260,23 @@ def main():
 
         l1_penalty = L1_LAMBDA * (a_incl + a_skip).mean()
 
+        # Gain allocation per bank as a probability vector (each sums to 1 by
+        # construction). Its Shannon entropy measures how spread the budget is:
+        # log(20) when uniform, 0 when one filter takes everything. exp(H) is the
+        # effective number of filters actually carrying the track — the single
+        # number to watch for whether the competition is working (falling) or
+        # locking in too early (crashing toward 1 right after the unfreeze).
+        g_incl, g_skip = model.filter_gains()
+        p_incl = g_incl / model.num_seq_filters
+        p_skip = g_skip / model.num_seq_filters
+        gain_entropy_incl = -(p_incl * p_incl.log()).sum()
+        gain_entropy_skip = -(p_skip * p_skip.log()).sum()
+
         loss = sd_loss + l1_penalty
+        if GAIN_ENTROPY_LAMBDA:
+            # Positive lambda penalizes high entropy, i.e. rewards concentrating the
+            # budget on few filters.
+            loss = loss + GAIN_ENTROPY_LAMBDA * (gain_entropy_incl + gain_entropy_skip)
         loss.backward()
         optimizer.step()
 
@@ -229,7 +293,11 @@ def main():
                 f"| raw mean col abs-dev = {col_std.mean().item():.6f} "
                 f"| within-species scale = {within_species_scale.item():.6f} "
                 f"| mean act = {mean_act:.6f} "
-                f"| mean|conv_w| = {mean_abs_w:.6f}"
+                f"| mean|conv_w| = {mean_abs_w:.6f} "
+                f"| eff filters incl/skip = {gain_entropy_incl.exp().item():.2f}"
+                f"/{gain_entropy_skip.exp().item():.2f} "
+                f"| max gain incl/skip = {g_incl.max().item():.2f}"
+                f"/{g_skip.max().item():.2f}"
             )
 
     # ── Run metadata for the plotter/sidecar: dataset identity, planted motif, the
@@ -253,6 +321,10 @@ def main():
             "bg_block_len": BG_BLOCK_LEN,
             "bg_mutable_per_block": BG_MUTABLE_PER_BLOCK,
             "bg_mut_prob": BG_MUT_PROB,
+            "gain_temp": GAIN_TEMP,
+            "gain_floor": GAIN_FLOOR,
+            "gain_freeze_epochs": GAIN_FREEZE_EPOCHS,
+            "gain_entropy_lambda": GAIN_ENTROPY_LAMBDA,
         },
         "final": {
             "loss": float(loss.item()),
@@ -260,6 +332,12 @@ def main():
             "l1": float(l1_penalty.item()),
             "raw_mean_col_sd": float(col_std.mean().item()),
             "within_species_scale": float(within_species_scale.item()),
+            # Final gain allocation, so the plotter can rank filters by learned
+            # importance and runs can be compared across seeds by effective count.
+            "gain_incl": [float(v) for v in g_incl.detach().cpu()],
+            "gain_skip": [float(v) for v in g_skip.detach().cpu()],
+            "eff_filters_incl": float(gain_entropy_incl.exp().item()),
+            "eff_filters_skip": float(gain_entropy_skip.exp().item()),
         },
     }
 

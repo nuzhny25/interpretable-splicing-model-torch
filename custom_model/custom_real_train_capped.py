@@ -1,44 +1,33 @@
-"""Real cross-species training with a LOCAL-baseline (excess-conservation) loss.
+"""Real cross-species training for the normalized SD-minimization loss.
 
-This is ``custom_real_train.py`` with exactly one change — the normalization of
-the per-column cross-species SD — so the two can be compared head to head.
+Loads the real MALAT1 multiz alignment matrix (``data/multiz100/alignment_matrix.npy``,
+shape ``(n_aligned, n_species)`` of single characters with ``A/C/G/T`` plus
+lowercase soft-masked ``a/c/g/t`` and the gap symbols ``-`` / ``N``). Each epoch
+trains on a fresh random combination of 10 species drawn from the alignment.
 
-Motivation
-----------
-``custom_real_train.py`` divides every column's cross-species SD by a *single
-global* scalar (the within-species dynamic range). On the real MALAT1 alignment
-the background is ~86% conserved across species (phylogeny + overall selection),
-so almost every column already has a low cross-species SD regardless of the
-filters. Dividing by one global number cannot tell a functionally conserved
-column apart from a column that is merely sitting in a slow-evolving, closely
-related neighborhood. The loss is dominated by that shared phylogenetic
-conservation and collapses onto the single strongest motif.
+For every sampled species the SR-balance profile is computed by the simplified
+20+20-filter model on that species' gap-removed sequence (gaps are ``-`` and
+``N``; lowercase letters are nucleotides). Each 6-nt sliding-window value is then
+scattered back into alignment coordinates at the aligned column of the window's
+*first* nucleotide. Aligned columns that are gaps in a species — and the trailing
+nucleotides that never start a full window — are left absent (conceptually NaN).
 
-Fix (a): local baseline instead of a global scalar
---------------------------------------------------
-Here each column's cross-species SD is divided by a *per-column local baseline*
-— the masked rolling mean of ``col_std`` over a window of
-``+/- LOCAL_BASELINE_WINDOW`` aligned columns, counting only present columns.
-The loss then measures **excess** conservation: a column only lowers the loss
-when it is more cross-species-consistent than its own local background, rather
-than being rewarded for the phylogenetic conservation the whole region shares.
-This is the training analogue of what phyloP does when it scores a column
-against its neutral/local expectation instead of in absolute terms.
+This produces a ``(10, n_aligned)`` matrix with NaN at gaps; the loss is the
+NaN-aware cross-species standard deviation taken down each column, restricted to
+columns where at least ``MIN_SPECIES`` of the 10 sampled species are present.
 
-Both numerator (``col_std``) and denominator (``local_baseline``) are derived
-from the same SR track and scale together, so the loss stays scale-free: uniform
-shrinkage of all activations toward a constant does not lower it.
+The per-column cross-species SD is divided by the within-species dynamic range
+(mean over rows of each row's SD across positions), mirroring the normalization
+in filter_permutations/filter_permutations.py. This makes the loss scale-free:
+shrinking all activations toward zero shrinks the numerator and denominator
+equally, so the trivial "constant SR" collapse no longer lowers the loss.
 
-Caveat
-------
-This addresses the "background correlation swamps the contrast" failure. If
-motifs still collapse to one, that points to the deeper issue that uniformly
-conserved motifs give no *per-motif* gradient under an SD-minimization loss — the
-next step there is to score the SR track directly against a precomputed
-phyloP-style per-column conservation target (fix (b)).
+The NaN matrix is implemented as a ``values`` + ``mask`` pair rather than literal
+NaN, so gradients stay finite: masked entries contribute 0 and receive no
+gradient, exactly matching ``np.nanstd(..., ddof=1)`` over the non-NaN entries.
 
-Everything else — species sampling, NaN-aware masking, Gaussian SR smoothing, and
-the L1 activation penalty — is identical to ``custom_real_train.py``.
+This variant mirrors ``custom_real_train.py`` but uses the capped model from
+``custom_model_capped.py`` (bounded sigmoid activations).
 """
 
 import logging
@@ -49,7 +38,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from custom_model import PNASModel
+from custom_model_capped import PNASModel
 from custom_utils import str_to_vector
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -63,17 +52,29 @@ N_SAMPLE = 10  # number of species sampled per epoch
 MIN_SPECIES = 5  # a column counts toward the loss only if >= this many species present
 NUM_EPOCHS = 10000
 LR = 1e-2
-L1_LAMBDA = (
-    1e-3  # strength of L1 penalty on the softplus activations (retune by watching logs)
-)
+L1_LAMBDA = 0.002  # strength of L1 penalty on the softplus activations (retune by watching logs)
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
-# Half-width (in aligned columns) of the local background window used to normalize
-# each column's cross-species SD. Wide enough to give a stable neighborhood
-# estimate, narrow enough to still be "local" relative to the ~15k-column gene.
-LOCAL_BASELINE_WINDOW = 45
 SEED = 0
+
+# ── Per-filter gain settings (see PNASModel.filter_gains) ────────────────────
+GAIN_TEMP = 1.0  # softmax temperature; larger = flatter, slower reallocation
+GAIN_FLOOR = 0.02  # minimum gain per filter, so starved filters keep a gradient
+# Epochs to hold the gain logits frozen at zero (uniform gains) before letting the
+# filters compete. Without this the allocation starts moving from epoch 1, when
+# marginal utility is dominated by random init, and a couple of filters can starve
+# the rest before any of them has found a motif. Training during the freeze is
+# identical to the ungained model. 0 disables.
+GAIN_FREEZE_EPOCHS = 500
+# Strength of the entropy penalty on the gain allocation. The gains form a
+# probability vector (g / num_filters), so its entropy H measures how spread out
+# the budget is; adding +lambda*H to the loss rewards *low* entropy, i.e. a peaked
+# allocation on few filters. Entropy on the simplex is inherently scale-free, so it
+# fits the scale-free SD loss without reintroducing a shrink-to-zero direction.
+# 0 disables — the softmax competition already produces some sparsity on its own,
+# so turn this on only if the logged effective-filter count stays too high.
+GAIN_ENTROPY_LAMBDA = 0.0
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
 
@@ -108,18 +109,29 @@ def main():
         f"from {MATRIX_PATH} on {device} — sampling {N_SAMPLE} species/epoch, "
         f"column valid when >= {MIN_SPECIES} species present"
     )
-    logger.info(
-        f"Local-baseline normalization: masked rolling mean of col_std over "
-        f"+/-{LOCAL_BASELINE_WINDOW} aligned columns (excess-conservation loss)"
-    )
 
-    model = PNASModel().to(device)
+    model = PNASModel(gain_temp=GAIN_TEMP, gain_floor=GAIN_FLOOR).to(device)
+    # Adam's default weight_decay=0 matters here: decay on the gain logits would pull
+    # them back toward zero, which is exactly the uniform allocation — an anti-sparsity
+    # prior working against the competition the gains are meant to create.
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
-    # Fixed box kernel for the local-baseline rolling mean, built once. Ones of
-    # width 2*W+1; applied with zero padding to both col_std*valid and the valid
-    # mask so edge columns average over the (fewer) neighbors that actually exist.
-    box_kernel = torch.ones(1, 1, 2 * LOCAL_BASELINE_WINDOW + 1, device=device)
+    # Hold the gain logits at their zero init (uniform gains of 1.0) for the first
+    # GAIN_FREEZE_EPOCHS epochs. Params with requires_grad=False get no .grad, and Adam
+    # skips them, so the frozen phase trains exactly like the ungained model.
+    if GAIN_FREEZE_EPOCHS:
+        model.gain_logit_incl.requires_grad_(False)
+        model.gain_logit_skip.requires_grad_(False)
+        logger.info(
+            f"Per-filter gains: temp={GAIN_TEMP}, floor={GAIN_FLOOR}, "
+            f"entropy lambda={GAIN_ENTROPY_LAMBDA} — logits frozen for the first "
+            f"{GAIN_FREEZE_EPOCHS} epochs"
+        )
+    else:
+        logger.info(
+            f"Per-filter gains: temp={GAIN_TEMP}, floor={GAIN_FLOOR}, "
+            f"entropy lambda={GAIN_ENTROPY_LAMBDA} — logits trainable from epoch 1"
+        )
 
     # Fixed Gaussian kernel for smoothing the SR profile along position, built once.
     # Sum-normalized so it's a weighted average (preserves overall scale). It carries
@@ -143,6 +155,12 @@ def main():
     for epoch in range(1, NUM_EPOCHS + 1):
         optimizer.zero_grad()
 
+        # End of the frozen phase: let the filters start competing for gain budget.
+        if GAIN_FREEZE_EPOCHS and epoch == GAIN_FREEZE_EPOCHS + 1:
+            model.gain_logit_incl.requires_grad_(True)
+            model.gain_logit_skip.requires_grad_(True)
+            logger.info(f"epoch {epoch:4d} | gain logits unfrozen")
+
         # Fresh random combination of N_SAMPLE species for this epoch.
         sel = torch.randperm(n_total)[:N_SAMPLE]
 
@@ -159,8 +177,11 @@ def main():
         act_sum = torch.zeros((), device=device)
         act_count = 0
         for r, j in enumerate(sel.tolist()):
-            # a_incl / a_skip are the raw (unsmoothed) summed softplus activations,
+            # a_incl / a_skip are the raw (unsmoothed), *ungained* summed activations,
             # both (1, Lj-5) and >= 0; used by the activation L1 penalty below.
+            # Ungained on purpose: a penalty on the gain-weighted sum would be
+            # minimized by parking the gain budget on the least active filter, so the
+            # activity tax would end up steering the allocation onto dead filters.
             sr_j, a_incl, a_skip = model.compute_sr_profile(
                 species_oh[j], return_activations=True
             )
@@ -194,35 +215,44 @@ def main():
         col_std = torch.sqrt(col_var + 1e-8)
         valid = count >= MIN_SPECIES
 
-        # Denominator: per-column LOCAL baseline = masked rolling mean of col_std over
-        # a +/-LOCAL_BASELINE_WINDOW window of *valid* columns. Convolving col_std*valid
-        # with a box kernel gives the neighborhood sum; convolving the valid mask with
-        # the same kernel gives how many valid columns fell in each window, so dividing
-        # yields the mean over present neighbors only (edges self-correct). Dividing
-        # each column by its own baseline makes the loss an excess-conservation measure
-        # (see module docstring); it stays differentiable and scale-free because the
-        # baseline is built from the same col_std as the numerator.
-        valid_f = valid.float()
-        local_sum = F.conv1d(
-            (col_std * valid_f).view(1, 1, -1),
-            box_kernel,
-            padding=LOCAL_BASELINE_WINDOW,
-        ).view(-1)
-        local_cnt = F.conv1d(
-            valid_f.view(1, 1, -1), box_kernel, padding=LOCAL_BASELINE_WINDOW
-        ).view(-1)
-        local_baseline = local_sum / local_cnt.clamp(min=1)
+        # Denominator: within-species dynamic range = each row's SD across positions
+        # (NaN-aware, ddof=1), averaged over rows. Dividing by it makes the loss
+        # scale-free (matches filter_permutations/filter_permutations.py), so the
+        # model can't cheat to a low SD by shrinking all activations toward a constant.
+        rc = mask.sum(1)  # (N_SAMPLE,)
+        row_mean = (values * mask).sum(1) / rc.clamp(min=1)
+        row_var = (((values - row_mean.unsqueeze(1)) ** 2) * mask).sum(1) / (
+            rc - 1
+        ).clamp(min=1)
+        within_species_scale = torch.sqrt(row_var + 1e-8).mean()  # scalar
 
         sd_loss = (
-            col_std[valid] / (local_baseline[valid] + 1e-8)
-        ).mean()  # mean excess-conservation ratio over valid columns
+            (col_std[valid]) / within_species_scale
+        ).mean()  # normalized average column SD
 
         # L1 penalty on the summed softplus activations (activity sparsity -> peaked,
         # data-driven SR profiles). a_incl/a_skip are already >= 0, so no abs() is
         # needed; dividing by the total element count keeps the penalty independent of
         # seq length / number of species (matches custom_synthetic_train.py).
         l1_penalty = L1_LAMBDA * (act_sum / act_count)
+
+        # Gain allocation per bank as a probability vector (each sums to 1 by
+        # construction). Its Shannon entropy measures how spread the budget is:
+        # log(20) when uniform, 0 when one filter takes everything. exp(H) is the
+        # effective number of filters actually carrying the track — the single
+        # number to watch for whether the competition is working (falling) or
+        # locking in too early (crashing toward 1 right after the unfreeze).
+        g_incl, g_skip = model.filter_gains()
+        p_incl = g_incl / model.num_seq_filters
+        p_skip = g_skip / model.num_seq_filters
+        gain_entropy_incl = -(p_incl * p_incl.log()).sum()
+        gain_entropy_skip = -(p_skip * p_skip.log()).sum()
+
         loss = sd_loss + l1_penalty
+        if GAIN_ENTROPY_LAMBDA:
+            # Positive lambda penalizes high entropy, i.e. rewards concentrating the
+            # budget on few filters.
+            loss = loss + GAIN_ENTROPY_LAMBDA * (gain_entropy_incl + gain_entropy_skip)
         loss.backward()
         optimizer.step()
 
@@ -236,22 +266,24 @@ def main():
                 f"| sd loss = {sd_loss.item():.6f} "
                 f"| l1 = {l1_penalty.item():.6f} "
                 f"| raw mean col SD = {col_std[valid].mean().item():.6f} "
-                f"| mean local baseline = {local_baseline[valid].mean().item():.6f} "
+                f"| within-species scale = {within_species_scale.item():.6f} "
                 f"| valid cols = {int(valid.sum().item())} "
-                f"| mean|conv_w| = {mean_abs_w:.6f}"
+                f"| mean|conv_w| = {mean_abs_w:.6f} "
+                f"| eff filters incl/skip = {gain_entropy_incl.exp().item():.2f}"
+                f"/{gain_entropy_skip.exp().item():.2f} "
+                f"| max gain incl/skip = {g_incl.max().item():.2f}"
+                f"/{g_skip.max().item():.2f}"
             )
 
-    # ── Run metadata for the plotter/sidecar: dataset identity (real alignment, so no
-    # planted motif), the local-baseline loss variant, the source matrix, the
-    # hyperparameters, and the final-epoch loss values. The "final" numbers are read
-    # from the loop variables still in scope after the loop (their last-iteration
-    # values), so nothing in the training loop above changes; this variant normalizes
-    # by a local background window instead of a global within-species scale. ──
+    # ── Run metadata for the plotter/sidecar: dataset identity (real alignment, so
+    # no planted motif), the source matrix, the hyperparameters, and the final-epoch
+    # loss values. The "final" numbers are read from the loop variables still in scope
+    # after the loop (their last-iteration values), so nothing in the training loop
+    # above changes; raw_mean_col_sd is over valid columns to match the training log. ──
     metadata = {
         "dataset": "real",
         "script": os.path.basename(__file__),
         "motif": None,
-        "loss_variant": "local-baseline",
         "matrix_path": MATRIX_PATH,
         "hparams": {
             "num_epochs": NUM_EPOCHS,
@@ -261,24 +293,32 @@ def main():
             "seed": SEED,
             "n_sample": N_SAMPLE,
             "min_species": MIN_SPECIES,
-            "local_baseline_window": LOCAL_BASELINE_WINDOW,
+            "gain_temp": GAIN_TEMP,
+            "gain_floor": GAIN_FLOOR,
+            "gain_freeze_epochs": GAIN_FREEZE_EPOCHS,
+            "gain_entropy_lambda": GAIN_ENTROPY_LAMBDA,
         },
         "final": {
             "loss": float(loss.item()),
             "sd_loss": float(sd_loss.item()),
             "l1": float(l1_penalty.item()),
             "raw_mean_col_sd": float(col_std[valid].mean().item()),
-            "mean_local_baseline": float(local_baseline[valid].mean().item()),
+            "within_species_scale": float(within_species_scale.item()),
+            # Final gain allocation, so the plotter can rank filters by learned
+            # importance and runs can be compared across seeds by effective count.
+            "gain_incl": [float(v) for v in g_incl.detach().cpu()],
+            "gain_skip": [float(v) for v in g_skip.detach().cpu()],
+            "eff_filters_incl": float(gain_entropy_incl.exp().item()),
+            "eff_filters_skip": float(gain_entropy_skip.exp().item()),
         },
     }
 
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
-    # Distinct filename so it does not clobber custom_real_train.py's real_weights.pt.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "real_local_baseline_weights.pt")
+    weights_path = os.path.join(weights_dir, "real_weights_capped.pt")
     torch.save(
         {
             "epoch": NUM_EPOCHS,

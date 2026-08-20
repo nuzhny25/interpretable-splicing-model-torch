@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "custom_real_train_absolute_deviation_kernel.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/../data/multiz100/alignment_matrix.npy",
+    "hparams": {
+      "num_epochs": 10000,
+      "lr": 0.01,
+      "l1_lambda": 0.002,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 10,
+      "min_species": 5
+    },
+    "final": {
+      "loss": 0.21273064613342285,
+      "sd_loss": 0.2125370353460312,
+      "l1": 0.00019360537407919765,
+      "raw_mean_col_sd": 0.0016305266181007028,
+      "within_species_scale": 0.007671728730201721
+    }
+  },
+  "caption": "dataset: real | model: ? | motif: no planted motif | epochs: 10000 | final loss 0.2127 (sd 0.2125, l1 0.0002) | lr 0.01, l1\u03bb 0.002, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/weights/real_weights_aad_kernel8.pt",
+    "epoch": 10000,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/filters_kernel8.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/filter_logos_kernel8.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/real_filters_kernel8.txt",
+    "logo_activation_frac": 0.75,
+    "min_contribution_frac": 0.2,
+    "generated_at": "2026-08-04T21:16:29"
+  }
+}

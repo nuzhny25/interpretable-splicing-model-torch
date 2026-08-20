@@ -1,4 +1,10 @@
-"""Synthetic training for the normalized cross-species SD-minimization loss.
+"""Warm-start variant of custom_synthetic_train_realistic.py.
+
+Identical synthetic setup, model, loss, and training loop as
+``custom_synthetic_train_realistic.py`` — the only difference is that the model's
+weights are loaded from an existing checkpoint before training begins (a
+weights-only warm start; the Adam optimizer is freshly initialized), and the
+resumed run is saved to a *new* file so the source checkpoint is never modified.
 
 Builds a hardcoded ``10 x 5000`` matrix of aligned sequences (10 "species" rows,
 5000 nucleotides each, no gaps), runs the simplified 20+20-filter model to get a
@@ -33,7 +39,7 @@ logger = logging.getLogger(__name__)
 # ── Hardcoded synthetic setup ───────────────────────────────────────────────
 N_SPECIES = 10
 SEQ_LEN = 5000
-NUM_EPOCHS = 10000
+NUM_EPOCHS = 1000
 LR = 1e-2
 L1_LAMBDA = (
     1e-2  # strength of L1 penalty on the softplus activations (retune by watching logs)
@@ -42,6 +48,11 @@ SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
 SEED = 0
+
+# Warm-start: load these weights, train from them, and save to a NEW file so the
+# source checkpoint is never overwritten. Paths are relative to this script's dir.
+CHECKPOINT_PATH = "weights/artificial_model_2motifs.pt"
+OUTPUT_NAME = "from_checkpoint.pt"
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
 # Motifs to plant as the conserved blocks. Type in whatever sequences you want
@@ -146,6 +157,17 @@ def main():
     )
 
     model = PNASModel().to(device)
+
+    # ── Warm start: load model weights from the checkpoint (weights-only). The
+    # checkpoint file itself is never written to — the resumed run is saved to
+    # OUTPUT_NAME below. Uses the repo's load idiom (train.py / plot_filters.py):
+    # torch.load(weights_only=False) -> get("model_state_dict", ...) -> load_state_dict.
+    ckpt_path = os.path.join(os.path.dirname(__file__), CHECKPOINT_PATH)
+    checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
+    state_dict = checkpoint.get("model_state_dict", checkpoint)
+    model.load_state_dict(state_dict)  # strict: same architecture, exact resume
+    logger.info(f"Warm-started model weights from {ckpt_path}")
+
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
     # Fixed Gaussian kernel for smoothing the SR profile along position, built once.
@@ -243,6 +265,7 @@ def main():
     metadata = {
         "dataset": "synthetic",
         "script": os.path.basename(__file__),
+        "resumed_from": CHECKPOINT_PATH,
         "motifs": MOTIFS,
         "num_blocks": NUM_BLOCKS,
         "hparams": {
@@ -269,9 +292,14 @@ def main():
     # ── Save the trained weights to the weights/ directory ──
     # Checkpoint format matches train.py (weights nested under "model_state_dict")
     # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
+    # Saved to OUTPUT_NAME, and the assert guarantees we never overwrite the source
+    # checkpoint we warm-started from.
     weights_dir = os.path.join(os.path.dirname(__file__), "weights")
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "custom_model_realistic.pt")
+    weights_path = os.path.join(weights_dir, OUTPUT_NAME)
+    assert os.path.abspath(weights_path) != os.path.abspath(
+        ckpt_path
+    ), "OUTPUT_NAME must differ from CHECKPOINT_PATH so the checkpoint isn't overwritten"
     torch.save(
         {
             "epoch": NUM_EPOCHS,
