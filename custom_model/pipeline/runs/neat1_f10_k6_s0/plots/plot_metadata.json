@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/neat1/alignment_matrix.npy",
+    "hparams": {
+      "gene": "neat1",
+      "gene_label": "NEAT1",
+      "num_filters": 10,
+      "kernel_size": 6,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 18,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 59,
+      "min_species": 30
+    },
+    "final": {
+      "loss": 0.41647228598594666,
+      "sd_loss": 0.36340370774269104,
+      "ortho": 0.05306857079267502,
+      "mean_abs_r": 0.1061371441603687,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.29697516560554504,
+      "within_species_scale": 0.8172045946121216
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.6387680768966675,
+      "sd_loss": 0.46471899151802065,
+      "ortho": 0.17404907792806626,
+      "mean_abs_r": 0.3480981528044017,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.22970130145549775,
+      "within_species_scale": 0.5151134878396988
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k6_s0/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: NEAT1 | filters: 10+10 incl/skip, kernel: 6 nt | motif: no planted motif | epochs: 500 | final loss 0.4165 (sd 0.3634) | lr 0.01, ortho\u03bb 0.5, pool 18, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k6_s0/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k6_s0/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k6_s0/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k6_s0/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k6_s0/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-06T10:51:53"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/neat1/alignment_matrix.npy",
+    "windows_per_bank": 895097,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 348871,
+        "1": 181479,
+        "2": 363183,
+        "3": 367920,
+        "4": 448233,
+        "5": 302968,
+        "6": 358396,
+        "7": 385567,
+        "8": 195207,
+        "9": 488784
+      },
+      "SKIP": {
+        "0": 374836,
+        "1": 123250,
+        "2": 185474,
+        "3": 155048,
+        "4": 111180,
+        "5": 90891,
+        "6": 176611,
+        "7": 116678,
+        "8": 133676,
+        "9": 192558
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TTATTT",
+        "1": "TGACTG",
+        "2": "ATGATT",
+        "3": "CTTAGT",
+        "4": "TTTATT",
+        "5": "TTGTTT",
+        "6": "TAACTA",
+        "7": "TATGTA",
+        "8": "TGTGTT",
+        "9": "TTTGTA"
+      },
+      "SKIP": {
+        "0": "AATTGG",
+        "1": "GGAGGG",
+        "2": "AATTAT",
+        "3": "AATTAT",
+        "4": "AAATAT",
+        "5": "AGGTTT",
+        "6": "GATCCT",
+        "7": "GGGTGG",
+        "8": "GGCGGG",
+        "9": "TCTGAG"
+      }
+    }
+  }
+}

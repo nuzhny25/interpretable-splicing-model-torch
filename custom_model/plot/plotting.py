@@ -20,7 +20,7 @@ from custom_utils import str_to_vector
 from dataset_preparations.maf_processing import SPECIES
 
 MATRIX_PATH = os.path.join(ROOT, "data/multiz100/alignment_matrix.npy")
-WEIGHTS_PATH = os.path.join(CUSTOM_DIR, "weights/real_weights_aad.pt")
+WEIGHTS_PATH = os.path.join(CUSTOM_DIR, "weights/real_weights_ortho.pt")
 SEQ_CONS_PATH = os.path.join(
     ROOT, "plots/sequence_conservation/sequence_conservation.json"
 )

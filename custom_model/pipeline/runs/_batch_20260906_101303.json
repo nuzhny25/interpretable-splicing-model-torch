@@ -1,0 +1,778 @@
+{
+  "queue": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs.txt",
+  "shared_args": [],
+  "started_at": "2026-09-06T10:13:03",
+  "finished_at": "2026-09-06T13:56:59",
+  "n_queued": 48,
+  "n_succeeded": 48,
+  "runs": [
+    {
+      "index": 1,
+      "queue_line": 32,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 276.1,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k6_s0"
+    },
+    {
+      "index": 2,
+      "queue_line": 33,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 196.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k6_s0"
+    },
+    {
+      "index": 3,
+      "queue_line": 34,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 143.1,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f5_k6_s0"
+    },
+    {
+      "index": 4,
+      "queue_line": 36,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 323.9,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k8_s0"
+    },
+    {
+      "index": 5,
+      "queue_line": 37,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 209.9,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s0"
+    },
+    {
+      "index": 6,
+      "queue_line": 39,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 166.5,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k3_s0"
+    },
+    {
+      "index": 7,
+      "queue_line": 40,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 123.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f5_k3_s0"
+    },
+    {
+      "index": 8,
+      "queue_line": 42,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "1"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 118.1,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f5_k1_s0"
+    },
+    {
+      "index": 9,
+      "queue_line": 46,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 456.1,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f20_k6_s0"
+    },
+    {
+      "index": 10,
+      "queue_line": 47,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 323.9,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k6_s0"
+    },
+    {
+      "index": 11,
+      "queue_line": 48,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 251.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k6_s0"
+    },
+    {
+      "index": 12,
+      "queue_line": 50,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 540.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f20_k8_s0"
+    },
+    {
+      "index": 13,
+      "queue_line": 51,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 348.6,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k8_s0"
+    },
+    {
+      "index": 14,
+      "queue_line": 53,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 266.1,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f10_k3_s0"
+    },
+    {
+      "index": 15,
+      "queue_line": 54,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 196.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s0"
+    },
+    {
+      "index": 16,
+      "queue_line": 56,
+      "args": [
+        "--gene",
+        "neat1",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "1"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 175.7,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k1_s0"
+    },
+    {
+      "index": 17,
+      "queue_line": 60,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 387.8,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f20_k6_s0"
+    },
+    {
+      "index": 18,
+      "queue_line": 61,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 275.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0"
+    },
+    {
+      "index": 19,
+      "queue_line": 62,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 203.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f5_k6_s0"
+    },
+    {
+      "index": 20,
+      "queue_line": 64,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 419.9,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f20_k8_s0"
+    },
+    {
+      "index": 21,
+      "queue_line": 65,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 292.9,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k8_s0"
+    },
+    {
+      "index": 22,
+      "queue_line": 67,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 232.3,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s0"
+    },
+    {
+      "index": 23,
+      "queue_line": 68,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 174.0,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f5_k3_s0"
+    },
+    {
+      "index": 24,
+      "queue_line": 70,
+      "args": [
+        "--gene",
+        "hotair",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "1"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 161.1,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f5_k1_s0"
+    },
+    {
+      "index": 25,
+      "queue_line": 74,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 203.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f20_k6_s0"
+    },
+    {
+      "index": 26,
+      "queue_line": 75,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 145.3,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k6_s0"
+    },
+    {
+      "index": 27,
+      "queue_line": 76,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 107.7,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f5_k6_s0"
+    },
+    {
+      "index": 28,
+      "queue_line": 78,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 220.6,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f20_k8_s0"
+    },
+    {
+      "index": 29,
+      "queue_line": 79,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 156.3,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s0"
+    },
+    {
+      "index": 30,
+      "queue_line": 81,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 132.9,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s0"
+    },
+    {
+      "index": 31,
+      "queue_line": 82,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 98.4,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f5_k3_s0"
+    },
+    {
+      "index": 32,
+      "queue_line": 84,
+      "args": [
+        "--gene",
+        "il6",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "1"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 88.6,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f5_k1_s0"
+    },
+    {
+      "index": 33,
+      "queue_line": 88,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 516.2,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f20_k6_s0"
+    },
+    {
+      "index": 34,
+      "queue_line": 89,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 364.1,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k6_s0"
+    },
+    {
+      "index": 35,
+      "queue_line": 90,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 255.7,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s0"
+    },
+    {
+      "index": 36,
+      "queue_line": 92,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 538.3,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f20_k8_s0"
+    },
+    {
+      "index": 37,
+      "queue_line": 93,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 372.8,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k8_s0"
+    },
+    {
+      "index": 38,
+      "queue_line": 95,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 299.0,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k3_s0"
+    },
+    {
+      "index": 39,
+      "queue_line": 96,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 226.2,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s0"
+    },
+    {
+      "index": 40,
+      "queue_line": 98,
+      "args": [
+        "--gene",
+        "vegfa",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "1"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 203.9,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k1_s0"
+    },
+    {
+      "index": 41,
+      "queue_line": 102,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 665.6,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f20_k6_s0"
+    },
+    {
+      "index": 42,
+      "queue_line": 103,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 389.5,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k6_s0"
+    },
+    {
+      "index": 43,
+      "queue_line": 104,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "6"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 280.6,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f5_k6_s0"
+    },
+    {
+      "index": 44,
+      "queue_line": 106,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 680.7,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f20_k8_s0"
+    },
+    {
+      "index": 45,
+      "queue_line": 107,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "8"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 433.3,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k8_s0"
+    },
+    {
+      "index": 46,
+      "queue_line": 110,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "10",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 330.0,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k3_s0"
+    },
+    {
+      "index": 47,
+      "queue_line": 111,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "3"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 242.5,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f5_k3_s0"
+    },
+    {
+      "index": 48,
+      "queue_line": 113,
+      "args": [
+        "--gene",
+        "xist",
+        "--num-filters",
+        "5",
+        "--kernel-size",
+        "1"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 221.2,
+      "run_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f5_k1_s0"
+    }
+  ]
+}

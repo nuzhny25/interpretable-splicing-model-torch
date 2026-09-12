@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+    "hparams": {
+      "gene": "multiz100",
+      "gene_label": "MALAT1",
+      "num_filters": 10,
+      "kernel_size": 8,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 24,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.3304612636566162,
+      "sd_loss": 0.27855560183525085,
+      "ortho": 0.051905665546655655,
+      "mean_abs_r": 0.10381133475162939,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.19729597866535187,
+      "within_species_scale": 0.7082821726799011
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.5534671872854233,
+      "sd_loss": 0.37167896926403043,
+      "ortho": 0.18178821206092835,
+      "mean_abs_r": 0.3635764230408842,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.1831580489873886,
+      "within_species_scale": 0.5195932760834694
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s0/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: MALAT1 | filters: 10+10 incl/skip, kernel: 8 nt | motif: no planted motif | epochs: 500 | final loss 0.3305 (sd 0.2786) | lr 0.01, ortho\u03bb 0.5, pool 24, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s0/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s0/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s0/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s0/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s0/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-06T10:32:07"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+    "windows_per_bank": 421544,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 19149,
+        "1": 134601,
+        "2": 48000,
+        "3": 53515,
+        "4": 58884,
+        "5": 27380,
+        "6": 31172,
+        "7": 34440,
+        "8": 19761,
+        "9": 67338
+      },
+      "SKIP": {
+        "0": 64557,
+        "1": 60174,
+        "2": 52526,
+        "3": 22080,
+        "4": 13994,
+        "5": 74078,
+        "6": 28766,
+        "7": 3477,
+        "8": 94221,
+        "9": 173455
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "AAATAAAA",
+        "1": "AAGTTGTT",
+        "2": "AAGTAAAA",
+        "3": "AGTTGAGT",
+        "4": "GATTTGAA",
+        "5": "GGGCAGCT",
+        "6": "ACTTAATG",
+        "7": "GGGCAGCC",
+        "8": "AGGCCTTT",
+        "9": "AATTTTGG"
+      },
+      "SKIP": {
+        "0": "TTTAGGAA",
+        "1": "ACGGTTGA",
+        "2": "AGGTTAGA",
+        "3": "TGGTAACC",
+        "4": "CTTCCCAT",
+        "5": "GTGACTGT",
+        "6": "TGTGTTTT",
+        "7": "CCCCCCCC",
+        "8": "TAATGTAG",
+        "9": "TTTATTAA"
+      }
+    }
+  }
+}

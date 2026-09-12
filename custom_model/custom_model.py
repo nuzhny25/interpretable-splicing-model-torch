@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class PNASModel(nn.Module):
-    """Sequence-only inclusion/skipping model with 20+20 interpretable filters.
+    """Sequence-only inclusion/skipping model with N+N interpretable filters.
 
     This variant is stripped down to the motif-discovery path used by the
     cross-species SD-minimization training: two convolutional filter banks plus
@@ -15,25 +15,37 @@ class PNASModel(nn.Module):
     aggregation, ResidualTuner calibration, and sigmoid output) has been removed
     because the SD loss never runs ``forward`` — it consumes only
     :meth:`compute_sr_profile`.
+
+    ``num_filters`` and ``kernel_size`` default to the original PNAS values
+    (20 filters per bank, 6-nt kernel), so ``PNASModel()`` builds exactly the
+    architecture every existing checkpoint was trained with. They are arguments
+    rather than constants so a caller can size the model to a checkpoint it is
+    about to load: ``load_state_dict`` raises on a shape mismatch even with
+    ``strict=False``, so a plotter must build the right shape *before* loading.
     """
 
     def __init__(
         self,
         seq_in_channels=4,
+        num_filters=20,
+        kernel_size=6,
     ):
         """Initialize the model architecture.
 
         Args:
             seq_in_channels: Number of sequence one-hot channels. Defaults to 4.
+            num_filters: Filters per bank (incl and skip each get this many, so
+                the model holds ``2 * num_filters`` channels). Defaults to 20.
+            kernel_size: Width of each filter in nucleotides. Defaults to 6.
         """
         super(PNASModel, self).__init__()
 
         # In channels for the sequence input.
         self.seq_in_channels = seq_in_channels
 
-        # Fixed hyperparameters from original PNAS model
-        self.seq_kernel_size = 6
-        self.num_seq_filters = 20
+        # Architecture size; defaults are the original PNAS model's values.
+        self.seq_kernel_size = kernel_size
+        self.num_seq_filters = num_filters
 
         ### Sequence layers ###
         # (valid padding) #
@@ -55,16 +67,18 @@ class PNASModel(nn.Module):
     def compute_sr_profile(self, x_seq, return_activations=False):
         """Per-position inclusion-minus-skipping SR-balance track.
 
-        For every 6-nt sliding-window position it returns a single SR-balance
-        scalar, summed over the 20 inclusion/skipping filters. This is the
-        per-column signal used by the cross-species SD loss.
+        For every ``seq_kernel_size``-nt sliding-window position it returns a
+        single SR-balance scalar, summed over the ``num_seq_filters``
+        inclusion/skipping filters. This is the per-column signal used by the
+        cross-species SD loss.
 
         Args:
             x_seq: Sequence tensor of shape ``(batch_size, 4, input_length)``.
             return_activations: If True, also return the per-position summed
                 softplus activations ``a_incl`` and ``a_skip`` (both
-                non-negative, each of shape ``(batch_size, input_length - 5)``)
-                so a caller can penalize the activation magnitude directly.
+                non-negative, each of shape ``(batch_size, input_length -
+                seq_kernel_size + 1)``) so a caller can penalize the activation
+                magnitude directly.
 
         Returns:
             Tensor of shape ``(batch_size, input_length - seq_kernel_size + 1)``
@@ -72,8 +86,8 @@ class PNASModel(nn.Module):
             ``return_activations`` is True, instead returns the tuple
             ``(sr, a_incl, a_skip)``.
         """
-        a_incl = F.softplus(self.conv_incl(x_seq)).sum(dim=1)  # (batch, L-5), >= 0
-        a_skip = F.softplus(self.conv_skip(x_seq)).sum(dim=1)  # (batch, L-5), >= 0
+        a_incl = F.softplus(self.conv_incl(x_seq)).sum(dim=1)  # (batch, L-K+1), >= 0
+        a_skip = F.softplus(self.conv_skip(x_seq)).sum(dim=1)  # (batch, L-K+1), >= 0
         sr = a_incl - a_skip
         if return_activations:
             return sr, a_incl, a_skip

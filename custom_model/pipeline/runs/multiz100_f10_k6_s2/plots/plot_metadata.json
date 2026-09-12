@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+    "hparams": {
+      "gene": "multiz100",
+      "gene_label": "MALAT1",
+      "num_filters": 10,
+      "kernel_size": 6,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 18,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 2,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.3069233298301697,
+      "sd_loss": 0.268572598695755,
+      "ortho": 0.03835073858499527,
+      "mean_abs_r": 0.07670148075197514,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.0837315022945404,
+      "within_species_scale": 0.31176480650901794
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.5245803773403168,
+      "sd_loss": 0.32669399976730346,
+      "ortho": 0.1978863760828972,
+      "mean_abs_r": 0.3957727579130971,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.1311962679028511,
+      "within_species_scale": 0.4174002319574356
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k6_s2/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: MALAT1 | filters: 10+10 incl/skip, kernel: 6 nt | motif: no planted motif | epochs: 500 | final loss 0.3069 (sd 0.2686) | lr 0.01, ortho\u03bb 0.5, pool 18, \u03c3 1.5, seed 2",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k6_s2/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k6_s2/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k6_s2/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k6_s2/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k6_s2/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-12T13:45:27"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+    "windows_per_bank": 421668,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 27021,
+        "1": 178350,
+        "2": 28986,
+        "3": 90203,
+        "4": 107872,
+        "5": 48176,
+        "6": 52548,
+        "7": 78281,
+        "8": 196411,
+        "9": 94927
+      },
+      "SKIP": {
+        "0": 129806,
+        "1": 91344,
+        "2": 81657,
+        "3": 136184,
+        "4": 170774,
+        "5": 62219,
+        "6": 65266,
+        "7": 185880,
+        "8": 63452,
+        "9": 175293
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TGCCCA",
+        "1": "GGGAAA",
+        "2": "GCTGAG",
+        "3": "TCATTG",
+        "4": "GTGAGT",
+        "5": "TGATCA",
+        "6": "ATGCTG",
+        "7": "TGACAT",
+        "8": "TTTATG",
+        "9": "GTAGTT"
+      },
+      "SKIP": {
+        "0": "AGCTGG",
+        "1": "GACTTT",
+        "2": "GAATGT",
+        "3": "GATATT",
+        "4": "AGCAGA",
+        "5": "TAGGAT",
+        "6": "CAGTAG",
+        "7": "ATTGAA",
+        "8": "AGTGGT",
+        "9": "GATAGA"
+      }
+    }
+  }
+}

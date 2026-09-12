@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/vegfa/alignment_matrix.npy",
+    "hparams": {
+      "gene": "vegfa",
+      "gene_label": "VEGFA",
+      "num_filters": 10,
+      "kernel_size": 6,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 18,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 79,
+      "min_species": 40
+    },
+    "final": {
+      "loss": 0.3656391203403473,
+      "sd_loss": 0.3080346882343292,
+      "ortho": 0.057604432106018066,
+      "mean_abs_r": 0.11520886771925962,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.22162489593029022,
+      "within_species_scale": 0.7194802761077881
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.5724806427955628,
+      "sd_loss": 0.3842289000749588,
+      "ortho": 0.18825174272060394,
+      "mean_abs_r": 0.3765034845746966,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.23308947086334228,
+      "within_species_scale": 0.6309995025396347
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k6_s0/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: VEGFA | filters: 10+10 incl/skip, kernel: 6 nt | motif: no planted motif | epochs: 500 | final loss 0.3656 (sd 0.3080) | lr 0.01, ortho\u03bb 0.5, pool 18, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k6_s0/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k6_s0/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k6_s0/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k6_s0/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f10_k6_s0/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-06T12:31:13"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/vegfa/alignment_matrix.npy",
+    "windows_per_bank": 993107,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 339673,
+        "1": 265387,
+        "2": 694304,
+        "3": 269664,
+        "4": 313399,
+        "5": 282655,
+        "6": 192263,
+        "7": 429219,
+        "8": 33447,
+        "9": 297943
+      },
+      "SKIP": {
+        "0": 388799,
+        "1": 230398,
+        "2": 57185,
+        "3": 126490,
+        "4": 39898,
+        "5": 290044,
+        "6": 284329,
+        "7": 242413,
+        "8": 382138,
+        "9": 131279
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TTTTTT",
+        "1": "TGTCTG",
+        "2": "CTGCGG",
+        "3": "CGGGCT",
+        "4": "CCCCCC",
+        "5": "TCCGGT",
+        "6": "TAACCA",
+        "7": "CTGGGC",
+        "8": "TGCGTG",
+        "9": "TTTTTT"
+      },
+      "SKIP": {
+        "0": "CCTTGG",
+        "1": "TGGGGT",
+        "2": "AACAAA",
+        "3": "GAAAGA",
+        "4": "AAGCAA",
+        "5": "AGGTCC",
+        "6": "GGCCCT",
+        "7": "GGGGGG",
+        "8": "CGTCTG",
+        "9": "GGTGGG"
+      }
+    }
+  }
+}

@@ -1,0 +1,113 @@
+# Batch queue for run_pipeline.py — one run per line, written exactly as the flags
+# would be typed on the command line. Run the whole file with:
+#
+#     cd custom_model
+#     python pipeline/run_pipeline.py --batch pipeline/runs.txt
+#
+# Check what it resolves to first, without training anything:
+#
+#     python pipeline/run_pipeline.py --batch pipeline/runs.txt --dry-run
+#
+# Flags typed alongside --batch become defaults every line inherits unless that line
+# overrides them, which is the quick way to sweep at a shorter schedule:
+#
+#     python pipeline/run_pipeline.py --batch pipeline/runs.txt --epochs 50
+#
+# Rules:
+#   * "#" starts a comment, whole-line or trailing; blank lines are skipped.
+#   * A line ending in "\" continues onto the next, for wrapping long runs.
+#   * Runs execute in order, each in its own process. A run that fails is recorded
+#     and the queue carries on (pass --stop-on-error to abandon the rest instead).
+#   * Each run gets its own directory under pipeline/runs/. The name is derived as
+#     <gene>_f<filters>_k<kernel>_s<seed> unless the line sets --run-name, which is
+#     what to use when two runs would otherwise collide — e.g. the same architecture
+#     at two different --ortho-lambda values.
+#   * A batch summary (what ran, what failed, where each landed) is written to
+#     pipeline/runs/_batch_<timestamp>.json.
+#
+# Every run_pipeline.py flag is available per line; see --help for the full list.
+# The lines below are examples — edit or delete them.
+
+# MALAT1
+--gene malat1 --num-filters 20 --kernel-size 6
+--gene malat1 --num-filters 10 --kernel-size 6
+--gene malat1 --num-filters 5 --kernel-size 6
+
+--gene malat1 --num-filters 20 --kernel-size 8
+--gene malat1 --num-filters 10 --kernel-size 8
+
+--gene malat1 --num-filters 10 --kernel-size 3
+--gene malat1 --num-filters 5 --kernel-size 3
+
+--gene malat1 --num-filters 5 --kernel-size 1
+
+# NEAT1
+
+--gene neat1 --num-filters 20 --kernel-size 6
+--gene neat1 --num-filters 10 --kernel-size 6
+--gene neat1 --num-filters 5 --kernel-size 6
+
+--gene neat1 --num-filters 20 --kernel-size 8
+--gene neat1 --num-filters 10 --kernel-size 8
+
+--gene neat1 --num-filters 10 --kernel-size 3
+--gene neat1 --num-filters 5 --kernel-size 3
+
+--gene neat1 --num-filters 5 --kernel-size 1
+
+# HOTAIR
+
+--gene hotair --num-filters 20 --kernel-size 6
+--gene hotair --num-filters 10 --kernel-size 6
+--gene hotair --num-filters 5 --kernel-size 6
+
+--gene hotair --num-filters 20 --kernel-size 8
+--gene hotair --num-filters 10 --kernel-size 8
+
+--gene hotair --num-filters 10 --kernel-size 3
+--gene hotair --num-filters 5 --kernel-size 3
+
+--gene hotair --num-filters 5 --kernel-size 1
+
+# IL6
+
+--gene il6 --num-filters 20 --kernel-size 6
+--gene il6 --num-filters 10 --kernel-size 6
+--gene il6 --num-filters 5 --kernel-size 6
+
+--gene il6 --num-filters 20 --kernel-size 8
+--gene il6 --num-filters 10 --kernel-size 8
+
+--gene il6 --num-filters 10 --kernel-size 3
+--gene il6 --num-filters 5 --kernel-size 3
+
+--gene il6 --num-filters 5 --kernel-size 1
+
+# VEGFA
+
+--gene vegfa --num-filters 20 --kernel-size 6
+--gene vegfa --num-filters 10 --kernel-size 6
+--gene vegfa --num-filters 5 --kernel-size 6
+
+--gene vegfa --num-filters 20 --kernel-size 8
+--gene vegfa --num-filters 10 --kernel-size 8
+
+--gene vegfa --num-filters 10 --kernel-size 3
+--gene vegfa --num-filters 5 --kernel-size 3
+
+--gene vegfa --num-filters 5 --kernel-size 1
+
+# XIST
+
+--gene xist --num-filters 20 --kernel-size 6
+--gene xist --num-filters 10 --kernel-size 6
+--gene xist --num-filters 5 --kernel-size 6
+
+--gene xist --num-filters 20 --kernel-size 8
+--gene xist --num-filters 10 --kernel-size 8
+
+
+--gene xist --num-filters 10 --kernel-size 3
+--gene xist --num-filters 5 --kernel-size 3
+
+--gene xist --num-filters 5 --kernel-size 1

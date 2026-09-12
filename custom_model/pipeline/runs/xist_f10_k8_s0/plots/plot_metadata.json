@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/xist/alignment_matrix.npy",
+    "hparams": {
+      "gene": "xist",
+      "gene_label": "XIST",
+      "num_filters": 10,
+      "kernel_size": 8,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 24,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 58,
+      "min_species": 29
+    },
+    "final": {
+      "loss": 0.35444140434265137,
+      "sd_loss": 0.32148829102516174,
+      "ortho": 0.032953109592199326,
+      "mean_abs_r": 0.06590621744398781,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.21260212361812592,
+      "within_species_scale": 0.6613059043884277
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.588659143447876,
+      "sd_loss": 0.4147352367639542,
+      "ortho": 0.17392390817403794,
+      "mean_abs_r": 0.3478478181966084,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.1885804772377014,
+      "within_species_scale": 0.48473446667194364
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k8_s0/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: XIST | filters: 10+10 incl/skip, kernel: 8 nt | motif: no planted motif | epochs: 500 | final loss 0.3544 (sd 0.3215) | lr 0.01, ortho\u03bb 0.5, pool 24, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k8_s0/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k8_s0/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k8_s0/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k8_s0/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/xist_f10_k8_s0/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-06T13:43:39"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/xist/alignment_matrix.npy",
+    "windows_per_bank": 1377753,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 161400,
+        "1": 197167,
+        "2": 200592,
+        "3": 54996,
+        "4": 171045,
+        "5": 324954,
+        "6": 87451,
+        "7": 287714,
+        "8": 177961,
+        "9": 336753
+      },
+      "SKIP": {
+        "0": 85233,
+        "1": 83073,
+        "2": 245190,
+        "3": 210562,
+        "4": 318063,
+        "5": 224225,
+        "6": 319779,
+        "7": 303942,
+        "8": 310895,
+        "9": 227490
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TAATTAAA",
+        "1": "TAATAACA",
+        "2": "TAGTTAAA",
+        "3": "TGTGCAAT",
+        "4": "GATTTTAA",
+        "5": "AAACAATT",
+        "6": "ACTTACTG",
+        "7": "TGACAATT",
+        "8": "CGAACTTA",
+        "9": "AAATATCC"
+      },
+      "SKIP": {
+        "0": "ATTCAGAT",
+        "1": "TCAAATCC",
+        "2": "AGCTTAGG",
+        "3": "TTTTAAGC",
+        "4": "TCTATCAT",
+        "5": "ATCACCAA",
+        "6": "TCTATTTA",
+        "7": "TTTATAAA",
+        "8": "TTTTGAAA",
+        "9": "GTAAATTT"
+      }
+    }
+  }
+}

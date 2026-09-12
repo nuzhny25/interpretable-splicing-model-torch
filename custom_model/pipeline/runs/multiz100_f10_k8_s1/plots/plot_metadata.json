@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+    "hparams": {
+      "gene": "multiz100",
+      "gene_label": "MALAT1",
+      "num_filters": 10,
+      "kernel_size": 8,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 24,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 1,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.29540959000587463,
+      "sd_loss": 0.26417484879493713,
+      "ortho": 0.0312347449362278,
+      "mean_abs_r": 0.06246948917759518,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.10203123092651367,
+      "within_species_scale": 0.3862261474132538
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.5124261021614075,
+      "sd_loss": 0.3397065460681915,
+      "ortho": 0.17271955013275148,
+      "mean_abs_r": 0.3454390995750327,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.16085213497281076,
+      "within_species_scale": 0.4812753707170486
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: MALAT1 | filters: 10+10 incl/skip, kernel: 8 nt | motif: no planted motif | epochs: 500 | final loss 0.2954 (sd 0.2642) | lr 0.01, ortho\u03bb 0.5, pool 24, \u03c3 1.5, seed 1",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-12T13:30:42"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+    "windows_per_bank": 421544,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 62868,
+        "1": 95820,
+        "2": 107293,
+        "3": 18972,
+        "4": 94466,
+        "5": 117906,
+        "6": 53918,
+        "7": 17929,
+        "8": 78583,
+        "9": 112472
+      },
+      "SKIP": {
+        "0": 31890,
+        "1": 155366,
+        "2": 22120,
+        "3": 111619,
+        "4": 91233,
+        "5": 146428,
+        "6": 183484,
+        "7": 20733,
+        "8": 180837,
+        "9": 92174
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "ATTAGGGG",
+        "1": "ATAAGTAG",
+        "2": "ATAATTTT",
+        "3": "TGTTTTAT",
+        "4": "AGTGAAGA",
+        "5": "AAAGTAAT",
+        "6": "ATGTTATG",
+        "7": "CTTCCTTC",
+        "8": "GCAAGGAT",
+        "9": "ATAATTAT"
+      },
+      "SKIP": {
+        "0": "AGGCCTTA",
+        "1": "AATTATTT",
+        "2": "CAGGGTAG",
+        "3": "GATTTGAA",
+        "4": "AAGTGGTG",
+        "5": "TAAATGTT",
+        "6": "TAATTAAG",
+        "7": "AGGAAGCA",
+        "8": "AAATAATA",
+        "9": "GATGTTTT"
+      }
+    }
+  }
+}

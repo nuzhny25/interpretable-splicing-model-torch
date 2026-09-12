@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy",
+    "hparams": {
+      "gene": "hotair",
+      "gene_label": "HOTAIR",
+      "num_filters": 10,
+      "kernel_size": 8,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 24,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.3164054751396179,
+      "sd_loss": 0.25981637835502625,
+      "ortho": 0.05658908560872078,
+      "mean_abs_r": 0.1131781684674819,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.2462143450975418,
+      "within_species_scale": 0.9476475715637207
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.573525857925415,
+      "sd_loss": 0.36526734828948976,
+      "ortho": 0.20825850516557692,
+      "mean_abs_r": 0.41651701085187687,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.18601750656962396,
+      "within_species_scale": 0.556791576743126
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k8_s0/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: HOTAIR | filters: 10+10 incl/skip, kernel: 8 nt | motif: no planted motif | epochs: 500 | final loss 0.3164 (sd 0.2598) | lr 0.01, ortho\u03bb 0.5, pool 24, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k8_s0/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k8_s0/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k8_s0/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k8_s0/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k8_s0/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-06T11:47:52"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy",
+    "windows_per_bank": 729082,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 303923,
+        "1": 90298,
+        "2": 105808,
+        "3": 124011,
+        "4": 103558,
+        "5": 97744,
+        "6": 100123,
+        "7": 94528,
+        "8": 144676,
+        "9": 105300
+      },
+      "SKIP": {
+        "0": 40750,
+        "1": 83709,
+        "2": 107976,
+        "3": 119577,
+        "4": 149764,
+        "5": 106338,
+        "6": 95603,
+        "7": 93518,
+        "8": 89809,
+        "9": 230216
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "GCAACAAA",
+        "1": "TCAAAGGC",
+        "2": "CAGGCAGC",
+        "3": "TTTGTTGT",
+        "4": "CTTGTCAT",
+        "5": "CCGCCCCC",
+        "6": "CCAGAGTG",
+        "7": "TTGCAGCC",
+        "8": "CCAACCAA",
+        "9": "CCCAATAT"
+      },
+      "SKIP": {
+        "0": "GGTGGGCG",
+        "1": "GGGGGGGG",
+        "2": "AGGCAACA",
+        "3": "AAACAACA",
+        "4": "CCCCCCCC",
+        "5": "GGCCCTGG",
+        "6": "GCTATTGC",
+        "7": "GCCTGAGA",
+        "8": "AAATTTAA",
+        "9": "AATTAATA"
+      }
+    }
+  }
+}

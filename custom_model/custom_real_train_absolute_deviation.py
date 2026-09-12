@@ -29,6 +29,7 @@ gradient, exactly matching a NaN-aware mean absolute deviation over the non-NaN
 entries.
 """
 
+import json
 import logging
 import math
 import os
@@ -43,19 +44,44 @@ from custom_utils import str_to_vector
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
-# ── Real-alignment setup ─────────────────────────────────────────────────────
-MATRIX_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "data", "multiz100", "alignment_matrix.npy"
-)
-N_SAMPLE = 62  # number of species sampled per epoch
+_HERE = os.path.dirname(__file__)
+
+# ── Input / output paths ─────────────────────────────────────────────────────
+# The three lines that change when this script is pointed at a different gene. They are
+# grouped so a swap is one edit: the outputs must move with the input, or a control run
+# silently overwrites the checkpoint and curves of the run it is meant to be compared
+# against. For the NEAT1 control:
+#     GENE_DIR     = "neat1"
+#     WEIGHTS_PATH = .../"real_weights_aad_neat1.pt"
+#     HISTORY_PATH = .../"real_weights_aad_neat1_history.npz"
+GENE_DIR = "neat1"  # subdirectory of data/ holding alignment_matrix.npy
+MATRIX_PATH = os.path.join(_HERE, "..", "data", GENE_DIR, "alignment_matrix.npy")
+
+# Trained checkpoint. Format matches train.py (weights nested under "model_state_dict")
+# so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
+WEIGHTS_PATH = os.path.join(_HERE, "weights", "real_weights_aad_neat1.pt")
+
+# Per-epoch history of the loss components, written next to the weights so the curves
+# travel with the checkpoint that produced them. plot/plot_training_curves.py reads this
+# npz; without it a finished run keeps only its first-10-epoch average and final epoch,
+# and nothing in between can be plotted after the fact.
+HISTORY_PATH = os.path.join(_HERE, "weights", "real_weights_aad_history_neat1.npz")
+
+# ── Training hyperparameters ─────────────────────────────────────────────────
+N_SAMPLE = 59  # number of species sampled per epoch
 MIN_SPECIES = 30  # a column counts toward the loss only if >= this many species present
-NUM_EPOCHS = 10000
+NUM_EPOCHS = 1000
 LR = 1e-2
-L1_LAMBDA = 0.002  # strength of L1 penalty on the softplus activations (retune by watching logs)
+L1_LAMBDA = (
+    0.02  # strength of L1 penalty on the softplus activations (retune by watching logs)
+)
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
 SEED = 0
+
+HISTORY_EVERY = 10  # recording cadence; also gates the log line below
+FLUSH_EVERY = 500  # rewrite the npz this often so a killed run still has its curves
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
 
@@ -125,25 +151,80 @@ def main():
     }
     n_first10 = 0
 
+    # Per-epoch history of every scalar the log line below reports, recorded on the same
+    # HISTORY_EVERY cadence. All of these are already computed for the log, so keeping
+    # them is free; retaining them is what lets the component curves be plotted after the
+    # run instead of being inferred from the two endpoints in the metadata.
+    os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
+    history = {
+        k: []
+        for k in (
+            "epoch",
+            "loss",
+            "sd_loss",
+            "l1",
+            "raw_mean_col_sd",
+            "within_species_scale",
+            "mean_abs_w",
+            "valid_cols",
+        )
+    }
+
+    # ── Constant per-epoch structure when every species is used ──
+    # With N_SAMPLE == n_total the per-epoch randperm only permutes the rows of the
+    # full species set, and every term of the loss is invariant to row order. So the
+    # presence mask — and everything derived from it: the per-column species counts,
+    # the valid-column set, the per-row window counts, and the total number of
+    # (species, window) activations — is identical in every epoch. Build it once here
+    # so the loop below stops re-scattering the mask N_SAMPLE rows at a time and
+    # re-reducing it over 15k columns. With N_SAMPLE < n_total the sampled set really
+    # does change every epoch, so the loop keeps its original per-epoch path.
+    all_species = N_SAMPLE == n_total
+    if all_species:
+        fixed_sel = list(range(n_total))
+        # Columns that receive a value for each species: a length-Lj sequence has
+        # Lj-5 six-nt windows, so the trailing 5 nucleotides start no window and are
+        # absent from the mask (same truncation the scatter below applies).
+        fixed_win_cols = [
+            species_cols[j][: species_oh[j].shape[-1] - 5] for j in fixed_sel
+        ]
+        fixed_mask = torch.zeros(N_SAMPLE, n_aligned, device=device)
+        for r, cols_r in enumerate(fixed_win_cols):
+            fixed_mask[r, cols_r] = 1.0
+        fixed_count = fixed_mask.sum(0)  # (n_aligned,) species present per column
+        fixed_valid = fixed_count >= MIN_SPECIES
+        fixed_rc = fixed_mask.sum(1)  # (N_SAMPLE,) windows per species
+        fixed_act_count = sum(c.numel() for c in fixed_win_cols)
+        logger.info(
+            f"All {n_total} species used every epoch — mask, column counts and valid "
+            f"columns precomputed once: {int(fixed_valid.sum().item())} valid columns, "
+            f"{fixed_act_count} (species, window) activations"
+        )
+
     for epoch in range(1, NUM_EPOCHS + 1):
         optimizer.zero_grad()
 
-        # Fresh random combination of N_SAMPLE species for this epoch.
-        sel = torch.randperm(n_total)[:N_SAMPLE]
+        # Fresh random combination of N_SAMPLE species for this epoch (the full set,
+        # in fixed order, when all_species — the draw would be a no-op permutation).
+        sel = fixed_sel if all_species else torch.randperm(n_total)[:N_SAMPLE].tolist()
 
         # Build the aligned (N_SAMPLE, n_aligned) matrix of SR values. We never put
         # literal NaN into the differentiable tensor; `mask` marks present entries
         # (== non-NaN). Masked-out entries stay 0 and receive no gradient.
         values = torch.zeros(N_SAMPLE, n_aligned, device=device)
-        mask = torch.zeros(N_SAMPLE, n_aligned, device=device)
+        mask = (
+            fixed_mask
+            if all_species
+            else torch.zeros(N_SAMPLE, n_aligned, device=device)
+        )
 
         # Accumulate the summed softplus activations over all sampled species so the
         # L1 penalty below matches custom_synthetic_train.py: a mean over every
         # (species, window) activation. Sequences differ in length, so we track the
         # running activation sum and element count and divide once at the end.
         act_sum = torch.zeros((), device=device)
-        act_count = 0
-        for r, j in enumerate(sel.tolist()):
+        act_count = fixed_act_count if all_species else 0
+        for r, j in enumerate(sel):
             # a_incl / a_skip are the raw (unsmoothed) summed softplus activations,
             # both (1, Lj-5) and >= 0; used by the activation L1 penalty below.
             sr_j, a_incl, a_skip = model.compute_sr_profile(
@@ -151,7 +232,8 @@ def main():
             )
             sr_j = sr_j.squeeze(0)  # (Lj-5,)
             act_sum = act_sum + (a_incl + a_skip).sum()
-            act_count += a_incl.numel()
+            if not all_species:
+                act_count += a_incl.numel()
 
             # Gaussian-smooth the dense SR track along position (gap-free, no NaN).
             # Reflect-pad by the kernel half-width, then conv1d with the single-channel
@@ -169,23 +251,24 @@ def main():
             # Place each window's value at the aligned column of its first nucleotide.
             cols = species_cols[j][: sr_j.shape[0]]
             values[r, cols] = sr_j
-            mask[r, cols] = 1.0
+            if not all_species:
+                mask[r, cols] = 1.0
 
         # Numerator: NaN-aware cross-species mean absolute deviation per column
         # (about each column's cross-species mean), valid only where at least
         # MIN_SPECIES of the sampled species are present. Masked-out entries are
         # zeroed *after* the abs() so they contribute 0 and receive no gradient.
-        count = mask.sum(0)  # (n_aligned,)
+        count = fixed_count if all_species else mask.sum(0)  # (n_aligned,)
         col_mean = (values * mask).sum(0) / count.clamp(min=1)
         col_std = ((values - col_mean).abs() * mask).sum(0) / count.clamp(min=1)
-        valid = count >= MIN_SPECIES
+        valid = fixed_valid if all_species else count >= MIN_SPECIES
 
         # Denominator: within-species dynamic range = each row's mean absolute
         # deviation across positions (NaN-aware, about that row's own mean), averaged
         # over rows. Dividing by it makes the loss scale-free (matches
         # filter_permutations/filter_permutations.py), so the model can't cheat to a
         # low abs-dev by shrinking all activations toward a constant.
-        rc = mask.sum(1)  # (N_SAMPLE,)
+        rc = fixed_rc if all_species else mask.sum(1)  # (N_SAMPLE,)
         row_mean = (values * mask).sum(1) / rc.clamp(min=1)
         within_species_scale = (
             ((values - row_mean.unsqueeze(1)).abs() * mask).sum(1) / rc.clamp(min=1)
@@ -213,7 +296,7 @@ def main():
             first10_sums["within_species_scale"] += within_species_scale.item()
             n_first10 += 1
 
-        if epoch == 1 or epoch % 10 == 0:
+        if epoch == 1 or epoch % HISTORY_EVERY == 0:
             mean_abs_w = (
                 model.conv_incl.weight.abs().mean().item()
                 + model.conv_skip.weight.abs().mean().item()
@@ -227,6 +310,20 @@ def main():
                 f"| valid cols = {int(valid.sum().item())} "
                 f"| mean|conv_w| = {mean_abs_w:.6f}"
             )
+
+            # Same numbers as the log line, retained for plot_training_curves.py.
+            history["epoch"].append(epoch)
+            history["loss"].append(loss.item())
+            history["sd_loss"].append(sd_loss.item())
+            history["l1"].append(l1_penalty.item())
+            history["raw_mean_col_sd"].append(col_std[valid].mean().item())
+            history["within_species_scale"].append(within_species_scale.item())
+            history["mean_abs_w"].append(mean_abs_w)
+            history["valid_cols"].append(int(valid.sum().item()))
+
+            # Periodic flush: a run killed part-way still leaves plottable curves.
+            if epoch % FLUSH_EVERY == 0:
+                np.savez(HISTORY_PATH, **{k: np.asarray(v) for k, v in history.items()})
 
     # ── Run metadata for the plotter/sidecar: dataset identity (real alignment, so
     # no planted motif), the source matrix, the hyperparameters, and the final-epoch
@@ -257,14 +354,26 @@ def main():
             "within_species_scale": float(within_species_scale.item()),
         },
         "first_10_epochs_avg": first_10_epochs_avg,
+        # Where the per-epoch component curves for this run live, and at what cadence
+        # they were sampled, so a checkpoint points at its own training history.
+        "history_path": HISTORY_PATH,
+        "history_every": HISTORY_EVERY,
     }
 
-    # ── Save the trained weights to the weights/ directory ──
-    # Checkpoint format matches train.py (weights nested under "model_state_dict")
-    # so it can be reloaded by plot_filters.py and PNASModel.load_partial_state_dict.
-    weights_dir = os.path.join(os.path.dirname(__file__), "weights")
-    os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, "real_weights_aad.pt")
+    # ── Final history write: the same arrays as the periodic flush plus the run's
+    # hyperparameters, so plot_training_curves.py can stamp the figure from the npz
+    # alone without also loading the checkpoint. ──
+    np.savez(
+        HISTORY_PATH,
+        hparams_json=json.dumps(metadata["hparams"]),
+        **{k: np.asarray(v) for k, v in history.items()},
+    )
+    logger.info(
+        f"Saved {len(history['epoch'])} recorded epochs of loss components to {HISTORY_PATH}"
+    )
+
+    # ── Save the trained weights to WEIGHTS_PATH ──
+    os.makedirs(os.path.dirname(WEIGHTS_PATH), exist_ok=True)
     torch.save(
         {
             "epoch": NUM_EPOCHS,
@@ -272,9 +381,9 @@ def main():
             "optimizer_state_dict": optimizer.state_dict(),
             "metadata": metadata,
         },
-        weights_path,
+        WEIGHTS_PATH,
     )
-    logger.info(f"Saved model weights to {weights_path}")
+    logger.info(f"Saved model weights to {WEIGHTS_PATH}")
     logger.info("Done.")
 
 

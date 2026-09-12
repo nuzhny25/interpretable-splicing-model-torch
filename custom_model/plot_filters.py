@@ -4,15 +4,19 @@ Loads weights saved by custom_real_train.py (``weights/custom_model.pt`` by
 default), prints each learned conv filter's consensus motif (the argmax
 nucleotide at every kernel position), renders every INCL/SKIP filter as a
 heat map, and renders each filter as an information-content (bits) sequence logo
-built from the 6-mers whose softplus activation reaches at least a fraction (default
+built from the k-mers whose softplus activation reaches at least a fraction (default
 half, see --logo-activation-frac) of that filter's peak (see experiment/filter_max_scan.py).
-The same logos are also rendered a second time (``--real-logos``) from the real MALAT1
-alignment instead of the exhaustive 6-mer scan: there each above-threshold *window* of
+The same logos are also rendered a second time (``--real-logos``) from the real
+alignment instead of the exhaustive k-mer scan: there each above-threshold *window* of
 the aligned species counts once, so the logo is weighted by how often the filter's
-targets actually occur in MALAT1 rather than treating all 4096 6-mers as equally likely.
-Real cross-species training has no planted motif, so the readout is
+targets actually occur in the locus rather than treating all 4**k k-mers as equally
+likely. Real cross-species training has no planted motif, so the readout is
 motif-agnostic: it reports what each filter converged to rather than scoring it
 against a known target.
+
+The filter count and kernel width are read from the checkpoint, so a bank of any size
+plots correctly; ``k`` below is that checkpoint's kernel size (6 in the original PNAS
+architecture).
 
 Run after training:
 
@@ -43,6 +47,11 @@ from custom_model import PNASModel
 from custom_utils import DNA_ALPHABET, one_hot_batch, str_to_vector
 
 NUCLEOTIDES = ["A", "C", "G", "T"]
+
+# Ceiling on the exhaustive k-mer scan behind the theoretical logos. 4**k rows: 4,096
+# at the default kernel 6, 65,536 at kernel 8, 1,048,576 at kernel 10 — past which the
+# one-hot array alone runs to gigabytes.
+MAX_ENUMERATED_KMERS = 1 << 21  # 2,097,152 ~ kernel 10
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -89,20 +98,20 @@ def main():
         "--logos",
         default=os.path.join(_HERE, "filter_logos.png"),
         help="Output path for the information-content (bits) logo figure, built from "
-        "each filter's above-threshold max-activating 6-mers (see --logo-activation-frac).",
+        "each filter's above-threshold max-activating k-mers (see --logo-activation-frac).",
     )
     parser.add_argument(
         "--real-logos",
         default=os.path.join(_HERE, "filter_logos_real.png"),
         help="Output path for the real-data information-content (bits) logo figure: same "
-        "filters and layout as --logos, but each logo is built from the real MALAT1 "
-        "windows that fire the filter (see --matrix) instead of the exhaustive 4096 "
-        "6-mer scan. Written only when the alignment matrix exists.",
+        "filters and layout as --logos, but each logo is built from the real alignment "
+        "windows that fire the filter (see --matrix) instead of the exhaustive 4**k "
+        "k-mer scan. Written only when the alignment matrix exists.",
     )
     parser.add_argument(
         "--min-contribution-frac",
         type=float,
-        default=0.2,
+        default=0.05,
         help="Only render logos for filters whose peak softplus activation is at "
         "least this fraction of the strongest filter's peak (default: 0.05, i.e. "
         "5 percent of the strongest). Use 0 to show every filter.",
@@ -111,10 +120,10 @@ def main():
         "--logo-activation-frac",
         type=float,
         default=0.5,
-        help="Per filter, build its logo from every 6-mer whose softplus activation is "
+        help="Per filter, build its logo from every k-mer whose softplus activation is "
         "at least this fraction of that filter's own peak activation (default: 0.5 = "
         "half-max, matching experiment/filter_max_scan.py). Higher = fewer, sharper "
-        "6-mers.",
+        "k-mers.",
     )
     parser.add_argument(
         "--meta-out",
@@ -130,11 +139,32 @@ def main():
         "--logo-activation-frac x that filter's theoretical peak). A missing file just "
         "skips the counts and panels show the theoretical max only.",
     )
+    parser.add_argument(
+        "--gene-label",
+        default=None,
+        help="Display name of the gene the alignment belongs to, used in the "
+        "real-data figure title. Defaults to the --matrix path's parent directory "
+        "name (e.g. 'multiz100' for MALAT1, 'neat1' for NEAT1).",
+    )
     args = parser.parse_args()
 
-    model = PNASModel()
+    # Name the locus for the figure titles. The directory holding the matrix is the
+    # gene's identity everywhere else in the repo, so it is the natural fallback when
+    # no explicit label is passed.
+    gene_label = args.gene_label or os.path.basename(
+        os.path.dirname(os.path.abspath(args.matrix))
+    )
+
     ckpt = torch.load(args.weights, map_location="cpu", weights_only=False)
     state_dict = ckpt.get("model_state_dict", ckpt)
+    # Size the model to the checkpoint before loading it. strict=False forgives
+    # *missing* and *unexpected* keys but not shape mismatches — those go into
+    # error_msgs and are raised regardless — so a bank trained with a different
+    # filter count or kernel width would abort the load unless the model is
+    # built to match. Reading the shape here is what lets one plotter serve every
+    # architecture (the checkpoint is the only authority on what it contains).
+    n_filt, _, ksize = state_dict["conv_incl.weight"].shape
+    model = PNASModel(num_filters=n_filt, kernel_size=ksize)
     # strict=False so checkpoints from architecture variants that carry extra
     # parameters still load their conv banks here. custom_model_capped.py adds
     # per-filter gain logits; this plotter's PNASModel has no such parameter, so
@@ -182,6 +212,9 @@ def main():
             )
         )
 
+    convs = [("INCL", model.conv_incl), ("SKIP", model.conv_skip)]
+    num_filters, channels, kernel_size = model.conv_incl.weight.shape
+
     # ── Run metadata stamped into the checkpoint by the training scripts (dataset
     # identity, planted motif, hyperparameters, final-epoch loss). Build one caption
     # string, reused as the figure footer on both plots and in the sidecar JSON.
@@ -202,14 +235,34 @@ def main():
         variant = meta.get("loss_variant")
         variant_str = f", loss={variant}" if variant else ""
         model_type = meta.get("model_type", "?")
+        # The architecture the run chose. Read from the checkpoint's own weights
+        # rather than from hparams, so it is right even for the older checkpoints
+        # that predate the pipeline and record no filter count or kernel size.
+        gene_str = hp.get("gene_label") or hp.get("gene")
+        gene_part = f"gene: {gene_str} | " if gene_str else ""
+        # The l1 term is optional: the orthogonality runs set l1_lambda = 0, which
+        # makes "l1 0.0000, l1λ 0" two dead fields in every caption. Report the
+        # term only when it is actually part of the loss. Absent l1_lambda (older
+        # checkpoints) is treated as "enabled" so their captions are unchanged.
+        l1_lambda = hp.get("l1_lambda", None)
+        l1_on = l1_lambda is None or l1_lambda
+        l1_final = f", l1 {final.get('l1', float('nan')):.4f}" if l1_on else ""
+        l1_hp = f", l1λ {l1_lambda}" if l1_on else ""
+        ortho_hp = (
+            f", orthoλ {hp['ortho_lambda']}" if hp.get("ortho_lambda") is not None else ""
+        )
+        pool_hp = (
+            f", pool {hp['pool_length']}" if hp.get("pool_length") is not None else ""
+        )
         caption = (
             f"dataset: {meta.get('dataset', '?')} | model: {model_type} | "
+            f"{gene_part}"
+            f"filters: {num_filters}+{num_filters} incl/skip, kernel: {kernel_size} nt | "
             f"motif: {motif_str}{variant_str} | "
             f"epochs: {hp.get('num_epochs', '?')} | "
             f"final loss {final.get('loss', float('nan')):.4f} "
-            f"(sd {final.get('sd_loss', float('nan')):.4f}, "
-            f"l1 {final.get('l1', float('nan')):.4f}) | "
-            f"lr {hp.get('lr', '?')}, l1λ {hp.get('l1_lambda', '?')}, "
+            f"(sd {final.get('sd_loss', float('nan')):.4f}{l1_final}) | "
+            f"lr {hp.get('lr', '?')}{l1_hp}{ortho_hp}{pool_hp}, "
             f"σ {hp.get('smooth_sigma', '?')}, seed {hp.get('seed', '?')}"
         )
     else:
@@ -218,9 +271,6 @@ def main():
             "checkpoint predates metadata stamping)"
         )
     logger.info(f"Run metadata: {caption}")
-
-    convs = [("INCL", model.conv_incl), ("SKIP", model.conv_skip)]
-    num_filters, channels, kernel_size = model.conv_incl.weight.shape
 
     # ── Learned-filter readout (motif-agnostic, since real training has no planted
     # motif): each filter's consensus motif (argmax nucleotide per kernel position)
@@ -285,7 +335,10 @@ def main():
     all_w = torch.cat([conv.weight.detach().cpu().reshape(-1) for _, conv in convs])
     vmax = all_w.abs().max().item()
 
-    n_cols = 5
+    # Grid width, capped by the bank size so a small bank is one full row rather than
+    # a squat row of mostly-blank cells (a 3-filter bank would otherwise draw 3 panels
+    # and 2 gaps). Shared by the heat-map grid and both logo grids below.
+    n_cols = min(5, max(1, num_filters))
     rows_per_conv = math.ceil(num_filters / n_cols)
     n_rows = len(convs) * rows_per_conv
     fig, axes = plt.subplots(
@@ -330,7 +383,7 @@ def main():
 
     fig.colorbar(im, ax=axes, shrink=0.6, label="filter weight")
     # Second suptitle line summarizing the gain allocation, so the figure states how
-    # concentrated the model is without the reader having to compare 40 g= values.
+    # concentrated the model is without the reader having to compare every g= value.
     if gains:
         alloc = "; ".join(
             f"{bank} {np.exp(-(p * np.log(p)).sum()):.1f} effective of {num_filters} "
@@ -354,55 +407,78 @@ def main():
     logger.info(f"Wrote {2 * num_filters} filter heat maps to {args.out}")
 
     # ── Plot each *significant* filter as an information-content (bits) sequence logo
-    # built from the 6-mers it maximally activates on, mirroring experiment/filter_max_scan.py.
-    # Because the kernel (6) spans the whole input window, a filter's response over
-    # every possible input is an exhaustive scan of the 4**6 = 4096 six-mers. For each
-    # filter we keep every 6-mer whose softplus activation reaches --logo-activation-frac
+    # built from the k-mers it maximally activates on, mirroring experiment/filter_max_scan.py.
+    # Because the kernel spans the whole input window, a filter's response over
+    # every possible input is an exhaustive scan of the 4**kernel_size k-mers. For each
+    # filter we keep every k-mer whose softplus activation reaches --logo-activation-frac
     # of that filter's own peak (default 0.5 = the half-max set), then turn the base
     # composition of that above-threshold set into a standard Shannon information logo:
     # per-position frequencies with no pseudocount (so a base absent from every selected
-    # 6-mer stays exactly 0 and draws no letter — present nucleotides only), scaled by the
+    # k-mer stays exactly 0 and draws no letter — present nucleotides only), scaled by the
     # column's information content 2 + Σ f·log2 f (max 2 bits for a fully conserved
     # column, ~0 for a uniform one). Letter heights are all >= 0, so nothing sits below
-    # the axis. The number of selected 6-mers and the peak softplus are printed per panel.
-    # The all-6-mers one-hot encoding is identical for every filter, so build it once.
+    # the axis. The number of selected k-mers and the peak softplus are printed per panel.
+    # The all-k-mers one-hot encoding is identical for every filter, so build it once.
     #
     # A filter's contribution to the model output is its softplus activation
-    # (compute_sr_profile sums softplus over the 20 filters), so its peak softplus
-    # over all 4096 6-mers is that filter's largest possible contribution to the SR
+    # (compute_sr_profile sums softplus over the bank), so its peak softplus over the
+    # whole k-mer space is that filter's largest possible contribution to the SR
     # sum — a filter whose peak is ~0 is effectively dead. We render only filters
     # whose peak reaches --min-contribution-frac of the single strongest filter's
     # peak (softplus outputs are directly comparable across the INCL and SKIP banks),
     # strongest-first within each bank. ──
+    #
+    # The enumeration is 4**kernel_size rows, so it is cheap at the usual kernel widths
+    # (4096 at k=6, 65536 at k=8) but explodes past that — k=12 would be 16.8M Python
+    # strings and a multi-GB one-hot array. Every filter's peak, and so the whole
+    # significance ranking below, is derived from this scan, so there is nothing
+    # sensible to fall back to: refuse loudly instead of wedging the machine.
+    n_kmers = 4**kernel_size
+    if n_kmers > MAX_ENUMERATED_KMERS:
+        raise SystemExit(
+            f"kernel_size={kernel_size} implies {n_kmers:,} k-mers to enumerate, above "
+            f"this plotter's {MAX_ENUMERATED_KMERS:,} cap. The filter heat maps and "
+            f"{args.txt} were written; the logo figures need an exhaustive scan of the "
+            "kernel's input space and are not tractable at this width."
+        )
     all_seqs = ["".join(p) for p in itertools.product(DNA_ALPHABET, repeat=kernel_size)]
-    onehot = one_hot_batch(all_seqs)  # (4096, 4, kernel_size)
+    onehot = one_hot_batch(all_seqs)  # (n_kmers, 4, kernel_size)
 
-    # First pass: per-filter above-threshold 6-mers, information-content matrix, and peak.
+    # First pass: per-filter above-threshold k-mers, info-content matrix, and peak.
     filter_logos = {name: [] for name, _ in convs}
     for name, conv in convs:
         weight = conv.weight.detach().cpu().numpy()
         bias = conv.bias.detach().cpu().numpy()
         for filter_idx in range(num_filters):
-            # Filter output per 6-mer: for one-hot inputs the conv is just the sum of
-            # the weights under the active base at each position, plus bias; softplus
-            # matches the model. softplus is monotonic so it does not change the
-            # ranking, only the reported peak value.
-            raw = np.einsum("ncp,cp->n", onehot, weight[filter_idx]) + bias[filter_idx]
+            # Filter output per k-mer: for one-hot inputs the conv is just the sum
+            # of the weights under the active base at each position, plus bias;
+            # softplus matches the model. softplus is monotonic so it does not
+            # change the ranking, only the reported peak value.
+            raw = (
+                np.einsum("ncp,cp->n", onehot, weight[filter_idx])
+                + bias[filter_idx]
+            )
             outputs = np.logaddexp(0.0, raw)  # softplus, numerically stable
             peak = float(outputs.max())
             thresh = args.logo_activation_frac * peak
-            # Every 6-mer reaching the fraction of this filter's peak (>=1: the peak
+            # Every k-mer reaching the fraction of this filter's peak (>=1: the peak
             # itself always passes), strongest-first — the half-max set at frac=0.5.
-            sel_idx = [i for i in np.argsort(-outputs) if outputs[i] >= thresh]
+            # Threshold first, then sort only the survivors: sorting all 4**k
+            # entries and filtering in a Python loop costs the full enumeration per
+            # filter per bank, which is what made large kernels intractable.
+            above = np.flatnonzero(outputs >= thresh)
+            sel_idx = above[np.argsort(-outputs[above])]
             sel_seqs = [all_seqs[i] for i in sel_idx]
             n_sel = len(sel_seqs)
 
-            # Per-position base frequencies of the above-threshold 6-mers. No pseudocount,
-            # so nucleotides absent from every selected 6-mer stay exactly 0 (no letter).
+            # Per-position base frequencies of the above-threshold k-mers. No
+            # pseudocount, so nucleotides absent from every selected k-mer stay
+            # exactly 0 (no letter).
             counts = one_hot_batch(sel_seqs).sum(axis=0)  # (4, kernel_size)
             freq = counts / n_sel  # each column sums to 1
-            # Shannon information content per position (bits): 2 + Σ f·log2 f, max 2 for a
-            # fully conserved column, ~0 for a uniform one. Letter height = freq * info.
+            # Shannon information content per position (bits): 2 + Σ f·log2 f, max 2
+            # for a fully conserved column, ~0 for a uniform one. Letter height =
+            # freq * info.
             info = 2.0 + np.sum(
                 np.where(freq > 0, freq * np.log2(freq, where=freq > 0), 0.0), axis=0
             )
@@ -426,13 +502,13 @@ def main():
             )
 
     # ── Real-data activation counts ("fires"): how many sliding-window positions across
-    # the real alignment actually activate each filter. The 4096-mer scan above gives
-    # each filter's theoretical peak softplus; here we run the real MALAT1 species
+    # the real alignment actually activate each filter. The k-mer scan above gives
+    # each filter's theoretical peak softplus; here we run the real species
     # sequences through the same conv banks and count windows whose softplus reaches
     # --logo-activation-frac of that filter's peak — the very threshold that selects the
-    # filter's logo 6-mers, so the count reads as "how many real windows come within that
-    # fraction of this filter's best-possible activation." Every real 6-nt window is one
-    # of the 4096 scanned 6-mers, so a real activation is always <= the theoretical peak.
+    # filter's logo k-mers, so the count reads as "how many real windows come within that
+    # fraction of this filter's best-possible activation." Every real k-nt window is one
+    # of the scanned k-mers, so a real activation is always <= the theoretical peak.
     # Gap-strip -> one-hot -> conv -> softplus mirrors filter_coactivation_covariance.py.
     # If the alignment file is absent (e.g. a synthetic checkpoint), the counts are
     # skipped and panels show the theoretical max only.
@@ -458,16 +534,16 @@ def main():
                 # (num_filters, 4 * kernel_size) so it can be accumulated with one
                 # matmul per species (reshaped to (4, kernel_size) after the loop).
                 # This is what turns the "fires" set into a real-data sequence logo:
-                # unlike the 4096-mer scan above, a 6-mer that occurs 500 times in the
+                # unlike the k-mer scan above, a k-mer that occurs 500 times in the
                 # alignment contributes 500 counts, so the logo is weighted by what the
-                # filter actually sees in MALAT1.
+                # filter actually sees in this locus.
                 base_counts = np.zeros((num_filters, 4 * kernel_size), dtype=np.float64)
                 for j in range(n_species):
                     col = matrix[:, j]
                     is_nuc = (col != "-") & (col != "N")
                     seq = "".join(col[is_nuc]).upper()
                     if len(seq) < kernel_size:
-                        continue  # too short to hold a single 6-nt window
+                        continue  # too short to hold a single window
                     oh = str_to_vector(seq)  # (4, Lj), reused for the base counts below
                     x = torch.tensor(oh, dtype=torch.float32).unsqueeze(0)
                     act = (
@@ -476,7 +552,7 @@ def main():
                     fired = act >= thresh[:, None]  # (num_filters, Lj-5)
                     counts += fired.sum(axis=1)
                     windows += act.shape[1]
-                    # Every 6-nt window as a flat one-hot row, then one matmul sums the
+                    # Every k-nt window as a flat one-hot row, then one matmul sums the
                     # one-hots of exactly the windows each filter fired on. Equivalent to
                     # looping over fired windows and adding str_to_vector(window), but
                     # BLAS-fast; float32 is exact here (counts stay far below 2**24).
@@ -490,7 +566,7 @@ def main():
                 for d in filter_logos[name]:
                     f = d["filter_idx"]
                     d["n_real"] = int(counts[f])
-                    # Same information-content math as the 4096-mer logos above, applied
+                    # Same information-content math as the k-mer logos above, applied
                     # to the real firing windows: per-position frequencies with no
                     # pseudocount (absent bases stay 0 and draw no letter), scaled by the
                     # column's Shannon information 2 + Σ f·log2 f (uniform background, so
@@ -652,7 +728,7 @@ def main():
     fig.suptitle(
         "conv_incl / conv_skip information-content (bits) logos\n"
         f"({num_kept}/{num_total} filters, peak softplus >= "
-        f"{args.min_contribution_frac:g}x strongest; from 6-mers >= "
+        f"{args.min_contribution_frac:g}x strongest; from {kernel_size}-mers >= "
         f"{args.logo_activation_frac:g}x each filter's peak activation; "
         f"present nucleotides only)",
         y=1 - 0.12 * header_in / fig_h,
@@ -674,14 +750,14 @@ def main():
     plt.close(fig)
     logger.info(f"Wrote {num_kept} filter logos to {args.logos}")
 
-    # ── Same logos, built from the real MALAT1 alignment instead of the 4096-mer scan ──
-    # The figure above gives every 6-mer equal weight, so it says what a filter *could*
-    # detect: 4091 of the 4096 6-mers occur somewhere in this alignment, so the set of
-    # selected 6-mers is nearly the same either way. What differs is the weighting —
-    # here each *window* of the real alignment counts once, so a 6-mer occurring 1776
-    # times (TTTTTT) contributes 1776 counts and one occurring twice contributes two.
-    # The result is what the filter actually sees in MALAT1, shaped by the locus's
-    # conservation across the 62 species and its skewed base composition.
+    # ── Same logos, built from the real alignment instead of the k-mer scan ──
+    # The figure above gives every k-mer equal weight, so it says what a filter *could*
+    # detect: at kernel 6 nearly all 4096 6-mers occur somewhere in the alignment, so
+    # the set of selected k-mers is nearly the same either way. What differs is the
+    # weighting — here each *window* of the real alignment counts once, so a k-mer
+    # occurring 1776 times contributes 1776 counts and one occurring twice contributes
+    # two. The result is what the filter actually sees in this locus, shaped by its
+    # conservation across the aligned species and its skewed base composition.
     #
     # The windows are exactly the "fires" set counted above (softplus >=
     # --logo-activation-frac x that filter's theoretical peak), so each panel's fires=
@@ -759,7 +835,8 @@ def main():
             )
 
         r_fig.suptitle(
-            "conv_incl / conv_skip information-content (bits) logos — real MALAT1 windows\n"
+            f"conv_incl / conv_skip information-content (bits) logos — real {gene_label} "
+            "windows\n"
             f"({num_kept}/{num_total} filters; from the {n_windows_total:,} windows across "
             f"{n_species} species reaching {args.logo_activation_frac:g}x each filter's "
             "peak; occurrence-weighted, uniform background, present nucleotides only)",

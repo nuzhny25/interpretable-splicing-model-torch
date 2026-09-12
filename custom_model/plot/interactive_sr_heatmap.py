@@ -1,10 +1,14 @@
-"""Interactive SR-balance heatmap over the full MALAT1 alignment matrix.
+"""Interactive SR-balance heatmap over a gene's full alignment matrix.
 
 Writes a self-contained HTML file (no external dependencies) whose grid exactly
-mirrors ``alignment_matrix.npy`` (15273 aligned MSA columns x 62 species). Each
-populated cell is the raw, unsmoothed SR balance of the 6-nt window anchored at
-that aligned column for that species — window k sits at the aligned column of
-its first nucleotide, matching how custom_real_train.py scatters the profile.
+mirrors ``alignment_matrix.npy`` (aligned MSA columns x species). Each populated
+cell is the SR balance of the K-nt window anchored at that aligned column for
+that species — window k sits at the aligned column of its first nucleotide,
+matching how custom_real_train.py scatters the profile — shown either raw or
+Gaussian-smoothed along position (see the toggle below).
+
+The filter bank's width K and per-bank filter count F are read off the
+checkpoint, so any architecture run_pipeline.py can train renders correctly.
 
 Instead of embedding per-cell values, the page embeds the raw matrix columns
 plus the conv filter weights; JavaScript recomputes every window's activations
@@ -13,26 +17,36 @@ small and guarantees the tooltip contributions sum exactly to the cell value.
 
 Page features:
   * Incl - Skip (diverging colormap) / Incl + Skip (sequential) toggle.
-  * A filter picker: "all 40 filters" (summed, the SR balance) or any single
+  * A filter picker: "all 2F filters" (summed, the SR balance) or any single
     I##/S## filter, in which case cells, scales, and the SD strip show only
     that filter's softplus contribution (skip filters negative in diff mode).
   * A cross-species SD strip under the grid: per aligned column, the standard
-    deviation (ddof=0) of the current mode's values over the species populated
-    there, on its own orange sequential scale with its own hover tooltip.
-  * Hover tooltip: species, 6-mer, aligned-column span (flagging gap-spanning
-    windows), cell value, and all 40 per-filter softplus contributions sorted
+    deviation (ddof=1, matching the training loss) of the current mode's values
+    over the species populated there, on its own orange sequential scale with
+    its own hover tooltip.
+  * Hover tooltip: species, K-mer, aligned-column span (flagging gap-spanning
+    windows), cell value, and all 2F per-filter softplus contributions sorted
     largest to smallest. Click pins the tooltip; Esc unpins.
+  * A raw / smoothed toggle. Smoothed applies the same operator the training
+    loss uses: a sum-normalized Gaussian (sigma=1.5 nt, ~3-sigma radius) run
+    with reflect padding along each species' dense, gap-free window track
+    before it is scattered to aligned columns. It reshapes the cells, both
+    colour scales, and the SD strip, and the tooltip's per-filter breakdown
+    switches to the matching smoothed contributions.
   * Zoom buttons (1-16 px per column), sticky species labels, position ruler.
   * A self-check badge comparing the JS math against reference cells computed
     here with torch via compute_sr_profile.
 """
 
+import argparse
 import json
+import math
 import os
 import sys
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from numpy.lib.stride_tricks import sliding_window_view
 
 ROOT = os.path.join(os.path.dirname(__file__), "../..")
@@ -47,8 +61,32 @@ from custom_utils import str_to_vector
 from dataset_preparations.maf_processing import SPECIES
 
 MATRIX_PATH = os.path.join(ROOT, "data/multiz100/alignment_matrix.npy")
-WEIGHTS_PATH = os.path.join(CUSTOM_DIR, "weights/real_weights_aad.pt")
-OUT_PATH = os.path.join(os.path.dirname(__file__), "sr_heatmap.html")
+WEIGHTS_PATH = os.path.join(CUSTOM_DIR, "weights/real_weights_ortho.pt")
+OUT_PATH = os.path.join(os.path.dirname(__file__), "sr_heatmap_ortho.html")
+
+# Mirrors custom_real_train_absolute_deviation.py, the script that produced
+# real_weights_aad.pt: a sum-normalized Gaussian applied along position to each
+# species' dense, gap-free SR track under reflect padding, so the ends are not
+# damped by zero edges. main() rebinds both from --smooth-sigma (or the
+# checkpoint's own hparams) before anything reads them.
+SMOOTH_SIGMA = 1.5
+SMOOTH_RADIUS = math.ceil(3 * SMOOTH_SIGMA)
+
+
+def gaussian_kernel():
+    offsets = torch.arange(-SMOOTH_RADIUS, SMOOTH_RADIUS + 1, dtype=torch.float32)
+    k = torch.exp(-(offsets**2) / (2 * SMOOTH_SIGMA**2))
+    return k / k.sum()
+
+
+def smooth_track(x, kernel):
+    """Smooth one dense track exactly as the training loop does."""
+    padded = F.pad(
+        torch.as_tensor(x, dtype=torch.float32).view(1, 1, -1),
+        (SMOOTH_RADIUS, SMOOTH_RADIUS),
+        mode="reflect",
+    )
+    return F.conv1d(padded, kernel.view(1, 1, -1)).view(-1).numpy()
 
 
 def species_profile(matrix, model, s_idx):
@@ -71,25 +109,116 @@ def species_profile(matrix, model, s_idx):
 
 
 def main():
-    matrix = np.load(MATRIX_PATH)
-    n_aligned, n_species = matrix.shape
+    global SMOOTH_SIGMA, SMOOTH_RADIUS
 
-    model = PNASModel()
-    ckpt = torch.load(WEIGHTS_PATH, map_location="cpu", weights_only=False)
-    model.load_state_dict(ckpt.get("model_state_dict", ckpt))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--weights",
+        default=WEIGHTS_PATH,
+        help="Checkpoint to render. The filter bank's width and count are read "
+        "off conv_incl.weight, so any architecture loads.",
+    )
+    parser.add_argument(
+        "--matrix",
+        default=MATRIX_PATH,
+        help="Alignment matrix .npy (aligned positions x species).",
+    )
+    parser.add_argument("--out", default=OUT_PATH, help="Output HTML file.")
+    parser.add_argument(
+        "--gene-label",
+        default=None,
+        help="Display name for the gene (e.g. MALAT1). Defaults to the matrix's "
+        "parent directory name.",
+    )
+    parser.add_argument(
+        "--run-name",
+        default=None,
+        help="Pipeline run name, shown in the title bar so several open pages "
+        "stay tellable apart.",
+    )
+    parser.add_argument(
+        "--species-json",
+        default=None,
+        help="species.json describing the matrix columns. Defaults to one "
+        "sitting beside the matrix; falls back to the hardcoded MALAT1/NEAT1 "
+        "species dicts when their length matches.",
+    )
+    parser.add_argument(
+        "--smooth-sigma",
+        type=float,
+        default=None,
+        help="Gaussian sigma (nt) for the smoothed view. Defaults to the value "
+        f"the checkpoint was trained with, else {SMOOTH_SIGMA}.",
+    )
+    args = parser.parse_args()
+
+    matrix = np.load(args.matrix)
+    n_aligned, n_species = matrix.shape
+    matrix_dir = os.path.dirname(os.path.abspath(args.matrix))
+    gene_label = args.gene_label or os.path.basename(matrix_dir)
+
+    ckpt = torch.load(args.weights, map_location="cpu", weights_only=False)
+    state_dict = ckpt.get("model_state_dict", ckpt)
+    # Size the model to the checkpoint before loading: a bank trained at a different
+    # filter count or kernel width has to be matched here or the load aborts on a
+    # shape mismatch. K and NF then travel in the payload so the JS indexes the same
+    # flattened weights the same way.
+    n_filt, _, ksize = state_dict["conv_incl.weight"].shape
+    model = PNASModel(num_filters=n_filt, kernel_size=ksize)
+    model.load_state_dict(state_dict)
     model.eval()
 
-    species_names = list(SPECIES)
-    assert len(species_names) == n_species
+    # The smoothed view must apply the operator this checkpoint was *trained* under,
+    # not this file's default, or the page and the run's loss curve disagree.
+    ckpt_sigma = (ckpt.get("metadata") or {}).get("hparams", {}).get("smooth_sigma")
+    if args.smooth_sigma is not None:
+        SMOOTH_SIGMA = args.smooth_sigma
+    elif ckpt_sigma is not None:
+        SMOOTH_SIGMA = float(ckpt_sigma)
+    SMOOTH_RADIUS = math.ceil(3 * SMOOTH_SIGMA)
+
+    # Species names, in matrix-column order. The genes built by
+    # maf_to_alignment_matrix.py carry their own species.json (their species sets are
+    # coverage-filtered per gene and differ from each other); MALAT1 and NEAT1 predate
+    # it and keep hand-curated dicts in dataset_preparations. Every candidate is
+    # length-checked, so a mismatched list degrades to indices instead of mislabelling
+    # 60-odd rows.
+    species_json = args.species_json or os.path.join(matrix_dir, "species.json")
+    species_names = None
+    if os.path.exists(species_json):
+        with open(species_json) as fh:
+            species_names = [c["name"] for c in json.load(fh)["columns"]]
+    if species_names is None or len(species_names) != n_species:
+        from dataset_preparations.neat1_maf_processing import SPECIES as NEAT1_SPECIES
+
+        for candidate in (SPECIES, NEAT1_SPECIES):
+            if len(candidate) == n_species:
+                species_names = list(candidate)
+                break
+    if species_names is None or len(species_names) != n_species:
+        print(
+            f"warning: no species list of length {n_species} for {matrix_dir}; "
+            "labelling rows by column index"
+        )
+        species_names = [f"sp{i}" for i in range(n_species)]
+
+    kernel = gaussian_kernel()
 
     payload = {
         "n_aligned": int(n_aligned),
         "species": species_names,
         "columns": ["".join(matrix[:, j]) for j in range(n_species)],
+        "kernel_size": int(ksize),
+        "num_filters": int(n_filt),
+        "gene_label": gene_label,
+        "run_name": args.run_name or "",
         "w_incl": model.conv_incl.weight.detach().numpy().tolist(),
         "b_incl": model.conv_incl.bias.detach().numpy().tolist(),
         "w_skip": model.conv_skip.weight.detach().numpy().tolist(),
         "b_skip": model.conv_skip.bias.detach().numpy().tolist(),
+        "smooth_sigma": SMOOTH_SIGMA,
+        "smooth_radius": int(SMOOTH_RADIUS),
+        "smooth_kernel": kernel.tolist(),
     }
 
     # Parity check: the manual conv the JS performs (one-hot lookup-sum over the
@@ -100,7 +229,7 @@ def main():
     w_skip = np.array(payload["w_skip"], dtype=np.float32)
     b_skip = np.array(payload["b_skip"], dtype=np.float32)
     oh = str_to_vector(seq)  # (4, L)
-    win = sliding_window_view(oh, 6, axis=1)  # (4, L-5, 6)
+    win = sliding_window_view(oh, ksize, axis=1)  # (4, L-ksize+1, ksize)
     z_incl = np.einsum("fcp,ckp->fk", w_incl, win) + b_incl[:, None]
     z_skip = np.einsum("fcp,ckp->fk", w_skip, win) + b_skip[:, None]
     a_incl_manual = np.logaddexp(0, z_incl).sum(axis=0)
@@ -110,55 +239,104 @@ def main():
     assert np.allclose(a_incl_manual - a_skip_manual, sr, atol=1e-4)
     print(f"parity check OK: human ({len(sr)} windows), torch vs payload weights")
 
+    # The JS smooths with an explicit reflected read index instead of materializing
+    # a padded copy. Reproduce that indexing here and check it against torch's
+    # reflect padding, so the browser can't silently drift from the training
+    # operator. period = 2*(n-1) folds index -1 onto 1 (the edge is not repeated).
+    n_win = len(sr)
+    period = 2 * (n_win - 1)
+    idx = (
+        np.arange(n_win)[:, None]
+        + np.arange(-SMOOTH_RADIUS, SMOOTH_RADIUS + 1)[None, :]
+    ) % period
+    idx = np.where(idx > n_win - 1, period - idx, idx)
+    sr_smooth_manual = (sr[idx].astype(np.float64) * kernel.numpy()).sum(axis=1)
+    sr_smooth = smooth_track(sr, kernel)
+    dev = float(np.abs(sr_smooth_manual - sr_smooth).max())
+    assert dev < 1e-3, f"smoothing parity failed (max dev {dev:.2e})"
+    print(
+        f"smoothing parity OK: sigma={SMOOTH_SIGMA}, kernel={2 * SMOOTH_RADIUS + 1} taps, "
+        f"max |reflect-index - torch| = {dev:.2e}"
+    )
+
     # Reference cells for the in-browser self-check.
     refs = []
     for s_idx, k_choice in [(0, 0), (0, None), (n_species // 2, 0)]:
         seq, cols, sr, a_incl, a_skip = species_profile(matrix, model, s_idx)
         k = len(sr) // 2 if k_choice is None else k_choice
+        # The JS smooths the inclusion and skipping tracks separately and combines
+        # them afterwards; smoothing is linear, so that must equal the training
+        # path (smoothing the already-differenced SR track).
+        incl_s = smooth_track(a_incl, kernel)
+        skip_s = smooth_track(a_skip, kernel)
+        assert np.allclose(incl_s - skip_s, smooth_track(sr, kernel), atol=1e-3)
         refs.append(
             {
                 "s": int(s_idx),
                 "k": int(k),
                 "col": int(cols[k]),
-                "sixmer": seq[k : k + 6],
+                "kmer": seq[k : k + ksize],
                 "diff": float(sr[k]),
                 "sum": float(a_incl[k] + a_skip[k]),
+                "diff_s": float(incl_s[k] - skip_s[k]),
+                "sum_s": float(incl_s[k] + skip_s[k]),
             }
         )
     payload["refs"] = refs
 
-    # Cross-species SD reference (Incl - Skip mode) at the best-populated
-    # column, for the in-browser check of the SD strip.
+    # Cross-species SD reference (Incl - Skip mode, ddof=1) at the
+    # best-populated column, for the in-browser check of the SD strip.
     col_sum = np.zeros(n_aligned)
     col_sq = np.zeros(n_aligned)
     col_cnt = np.zeros(n_aligned, dtype=int)
+    col_sum_s = np.zeros(n_aligned)
+    col_sq_s = np.zeros(n_aligned)
     for s_idx in range(n_species):
         _, cols, sr, _, _ = species_profile(matrix, model, s_idx)
         c = cols[: len(sr)]
         np.add.at(col_sum, c, sr)
         np.add.at(col_sq, c, sr.astype(np.float64) ** 2)
         np.add.at(col_cnt, c, 1)
+        sr_s = smooth_track(sr, kernel)
+        np.add.at(col_sum_s, c, sr_s)
+        np.add.at(col_sq_s, c, sr_s.astype(np.float64) ** 2)
     c_best = int(col_cnt.argmax())
-    m = col_sum[c_best] / col_cnt[c_best]
-    sd_best = float(np.sqrt(max(0.0, col_sq[c_best] / col_cnt[c_best] - m * m)))
-    payload["sd_ref"] = {"col": c_best, "n": int(col_cnt[c_best]), "sd": sd_best}
+    n_best = int(col_cnt[c_best])
+    m = col_sum[c_best] / n_best
+    sd_best = float(np.sqrt(max(0.0, (col_sq[c_best] - n_best * m * m) / (n_best - 1))))
+    m_s = col_sum_s[c_best] / n_best
+    sd_best_s = float(
+        np.sqrt(max(0.0, (col_sq_s[c_best] - n_best * m_s * m_s) / (n_best - 1)))
+    )
+    payload["sd_ref"] = {
+        "col": c_best,
+        "n": int(col_cnt[c_best]),
+        "sd": sd_best,
+        "sd_smooth": sd_best_s,
+    }
 
     data_json = json.dumps(payload, separators=(",", ":")).replace("</", "<\\/")
     html = HTML_TEMPLATE.replace("__DATA_JSON__", data_json)
-    with open(OUT_PATH, "w") as f:
+    out_dir = os.path.dirname(os.path.abspath(args.out))
+    os.makedirs(out_dir, exist_ok=True)
+    with open(args.out, "w") as f:
         f.write(html)
 
-    print(f"wrote {OUT_PATH} ({os.path.getsize(OUT_PATH) / 1e6:.2f} MB)")
-    print("reference cells (species, window, aligned col, 6-mer, Incl-Skip, Incl+Skip):")
+    print(f"wrote {args.out} ({os.path.getsize(args.out) / 1e6:.2f} MB)")
+    print(
+        f"reference cells (species, window, aligned col, {ksize}-mer, "
+        "Incl-Skip, Incl+Skip):"
+    )
     for r in refs:
         print(
             f"  {species_names[r['s']]:<12} k={r['k']:<5} col={r['col']:<6} "
-            f"{r['sixmer']}  diff={r['diff']:+.4f}  sum={r['sum']:.4f}"
+            f"{r['kmer']}  diff={r['diff']:+.4f}  sum={r['sum']:.4f}"
         )
     sd_ref = payload["sd_ref"]
     print(
         f"SD reference: col={sd_ref['col']} n={sd_ref['n']} "
-        f"sd(Incl-Skip)={sd_ref['sd']:.4f}"
+        f"sd(Incl-Skip)={sd_ref['sd']:.4f} "
+        f"sd(smoothed)={sd_ref['sd_smooth']:.4f}"
     )
 
 
@@ -166,7 +344,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>MALAT1 SR-balance heatmap</title>
+<title>SR-balance heatmap</title>
 <style>
   :root {
     color-scheme: light;
@@ -298,14 +476,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>MALAT1 SR balance &mdash; per-species, per-window heatmap</h1>
-<div class="sub">Rows: 62 species (MSA column order) &middot; Columns: 15273 aligned positions &middot;
-Each cell = raw SR value of the 6-nt window anchored at that aligned column. Hover for the window and per-filter contributions; click to pin, Esc to unpin.</div>
+<h1 id="pagetitle">SR balance &mdash; per-species, per-window heatmap</h1>
+<div class="sub" id="pagesub">Each cell = SR value of the window anchored at that aligned column, raw or Gaussian-smoothed along position exactly as the training loss smooths it. Hover for the window and per-filter contributions; click to pin, Esc to unpin.</div>
 
 <div id="controls">
   <span class="seg" id="modeSeg">
     <button data-mode="diff" class="on">Incl &minus; Skip</button>
     <button data-mode="sum">Incl + Skip</button>
+  </span>
+  <span class="seg" id="smoothSeg">
+    <button data-sm="0" class="on">raw</button>
+    <button data-sm="1" id="smoothBtn">smoothed</button>
   </span>
   <span class="ctl-label">filter</span>
   <select id="filterPick"></select>
@@ -350,7 +531,22 @@ Each cell = raw SR value of the 6-nt window anchored at that aligned column. Hov
 <script>
 "use strict";
 const DATA = JSON.parse(document.getElementById("data").textContent);
-const NA = DATA.n_aligned, NS = DATA.species.length, K = 6, NF = 20;
+const NA = DATA.n_aligned, NS = DATA.species.length;
+// Filter-bank shape comes from the checkpoint, not from a literal: runs range over
+// K in {1,3,6,8} and NF in {5,10,20}, and every stride below is derived from them.
+const K = DATA.kernel_size, NF = DATA.num_filters;
+const FSTRIDE = 4 * K;
+
+// Header and tab title come from the payload: with a heatmap per pipeline run, the
+// gene and architecture are the only way to tell 48 open tabs apart.
+const ARCH = `${NF}+${NF} filters, ${K} nt`;
+const RUNTAG = DATA.run_name ? ` (${DATA.run_name})` : "";
+document.title = `${DATA.gene_label} SR-balance heatmap${RUNTAG}`;
+document.getElementById("pagetitle").textContent =
+  `${DATA.gene_label} SR balance — per-species, per-window heatmap${RUNTAG}`;
+document.getElementById("pagesub").prepend(
+  `Rows: ${NS} species (MSA column order) · Columns: ${NA} aligned positions · ` +
+  `Bank: ${ARCH} · `);
 
 const CELLH = 10;
 let cellW = 2;
@@ -358,18 +554,48 @@ let mode = "diff";   // "diff" = Incl - Skip, "sum" = Incl + Skip
 document.documentElement.style.setProperty("--cellh", CELLH + "px");
 document.documentElement.style.setProperty("--labelw", "150px");
 
-// ---- weights, flattened for the hot loop: w[f*24 + base*6 + pos] ----
+// ---- weights, flattened for the hot loop: w[f*FSTRIDE + base*K + pos] ----
 function flatten(w) {
-  const a = new Float32Array(NF * 4 * K);
+  const a = new Float32Array(NF * FSTRIDE);
   for (let f = 0; f < NF; f++)
     for (let c = 0; c < 4; c++)
       for (let p = 0; p < K; p++)
-        a[f * 24 + c * 6 + p] = w[f][c][p];
+        a[f * FSTRIDE + c * K + p] = w[f][c][p];
   return a;
 }
 const WI = flatten(DATA.w_incl), WS = flatten(DATA.w_skip);
 const BI = Float32Array.from(DATA.b_incl), BS = Float32Array.from(DATA.b_skip);
 const softplus = z => (z > 30 ? z : Math.log1p(Math.exp(z)));
+
+// ---- position smoothing, mirroring the training loop ----
+// The training scripts convolve each species' dense (gap-free) SR track with a
+// sum-normalized Gaussian under reflect padding before scattering it to aligned
+// columns. Convolution is linear, so smoothing the inclusion and skipping tracks
+// separately and combining them afterwards reproduces the training value for
+// Incl - Skip exactly, and applies the same operator to Incl + Skip and to a
+// single filter's contribution.
+const SM_K = Float32Array.from(DATA.smooth_kernel);
+const SM_R = DATA.smooth_radius;
+let smoothOn = false;
+
+// PyTorch "reflect" padding mirrors without repeating the edge sample (index -1
+// reads index 1), i.e. a fold with period 2*(n-1).
+function reflectIdx(i, n) {
+  if (n < 2) return 0;
+  const period = 2 * (n - 1);
+  const m = ((i % period) + period) % period;
+  return m > n - 1 ? period - m : m;
+}
+
+function smoothArray(a) {
+  const n = a.length, out = new Float32Array(n);
+  for (let k = 0; k < n; k++) {
+    let acc = 0;
+    for (let p = -SM_R; p <= SM_R; p++) acc += SM_K[p + SM_R] * a[reflectIdx(k + p, n)];
+    out[k] = acc;
+  }
+  return out;
+}
 
 // ---- per-species parsing: gap-free codes + coordinate maps ----
 const CODE = { A: 0, C: 1, G: 2, T: 3 };
@@ -384,23 +610,23 @@ for (let s = 0; s < NS; s++) {
     chars.push(ch.toUpperCase());
   }
   const seq = chars.join("");
-  const L = seq.length, nWin = Math.max(0, L - 5);
+  const L = seq.length, nWin = Math.max(0, L - (K - 1));
   const codes = new Uint8Array(L);
   for (let i = 0; i < L; i++) codes[i] = CODE[seq[i]];
   const winOfCol = new Int32Array(NA).fill(-1);
   for (let k = 0; k < nWin; k++) winOfCol[cols[k]] = k;
   SP.push({ cols: Int32Array.from(cols), seq, codes, winOfCol, nWin,
-            aIncl: null, aSkip: null });
+            aIncl: null, aSkip: null, aInclS: null, aSkipS: null });
 }
 
 // Because the input is one-hot, each filter's pre-activation is a plain
 // lookup-sum of 6 weights — no multiplications.
-function windowActs(codes, k, out) {  // out: Float32Array(40) = [incl0..19, skip0..19]
+function windowActs(codes, k, out) {  // out: Float32Array(2*NF) = [incl.., skip..]
   for (let f = 0; f < NF; f++) {
     let zI = BI[f], zS = BS[f];
-    const base = f * 24;
+    const base = f * FSTRIDE;
     for (let p = 0; p < K; p++) {
-      const off = base + codes[k + p] * 6 + p;
+      const off = base + codes[k + p] * K + p;
       zI += WI[off];
       zS += WS[off];
     }
@@ -410,6 +636,19 @@ function windowActs(codes, k, out) {  // out: Float32Array(40) = [incl0..19, ski
 }
 
 const scratch = new Float32Array(2 * NF);
+
+// One window's 2*NF contributions under smoothing: the same Gaussian weighting
+// applied to each filter's own activation track, so the tooltip's breakdown
+// still sums exactly to the smoothed cell value.
+function windowActsSmoothed(sp, k, out) {
+  out.fill(0);
+  for (let p = -SM_R; p <= SM_R; p++) {
+    const w = SM_K[p + SM_R];
+    windowActs(sp.codes, reflectIdx(k + p, sp.nWin), scratch);
+    for (let f = 0; f < 2 * NF; f++) out[f] += w * scratch[f];
+  }
+}
+
 function computeSpecies(s) {
   const sp = SP[s];
   const aI = new Float32Array(sp.nWin), aS = new Float32Array(sp.nWin);
@@ -422,6 +661,8 @@ function computeSpecies(s) {
   }
   sp.aIncl = aI;
   sp.aSkip = aS;
+  sp.aInclS = smoothArray(aI);
+  sp.aSkipS = smoothArray(aS);
 }
 
 // ---- colormaps (256-entry LUTs) ----
@@ -446,34 +687,39 @@ const LUT_SUM  = buildLUT([[0, "#cde2fb"], [0.5, "#3987e5"], [1, "#0d366b"]]);
 const LUT_SD   = buildLUT([[0, "#fde3d7"], [0.5, "#eb6834"], [1, "#7a2a0e"]]);
 const NODATA = hex2rgb("#b5b4af");
 
-// ---- filter selection: -1 = all 40 summed, 0..19 = I##, 20..39 = S## ----
+// ---- filter selection: -1 = all 2*NF summed, 0..NF-1 = I##, NF..2NF-1 = S## ----
 let filterSel = -1;
 const filterName = fi => (fi < NF ? "I" : "S") + String(fi % NF).padStart(2, "0");
 
 // Per-window softplus activation of one filter, for every species (sp.fAct).
 function computeFilterActs(fi) {
   const W = fi < NF ? WI : WS, B = fi < NF ? BI : BS;
-  const f = fi % NF, base = f * 24;
+  const f = fi % NF, base = f * FSTRIDE;
   for (const sp of SP) {
     const a = new Float32Array(sp.nWin);
     const codes = sp.codes;
     for (let k = 0; k < sp.nWin; k++) {
       let z = B[f];
-      for (let p = 0; p < K; p++) z += W[base + codes[k + p] * 6 + p];
+      for (let p = 0; p < K; p++) z += W[base + codes[k + p] * K + p];
       a[k] = softplus(z);
     }
     sp.fAct = a;
+    sp.fActS = smoothArray(a);
   }
 }
 
 // Cell values under the current filter selection. A skip filter's
 // contribution is negative in diff mode, positive in sum mode.
 function valDiff(sp, k) {
-  if (filterSel < 0) return sp.aIncl[k] - sp.aSkip[k];
-  return filterSel < NF ? sp.fAct[k] : -sp.fAct[k];
+  if (filterSel < 0)
+    return smoothOn ? sp.aInclS[k] - sp.aSkipS[k] : sp.aIncl[k] - sp.aSkip[k];
+  const a = smoothOn ? sp.fActS : sp.fAct;
+  return filterSel < NF ? a[k] : -a[k];
 }
 function valSum(sp, k) {
-  return filterSel < 0 ? sp.aIncl[k] + sp.aSkip[k] : sp.fAct[k];
+  if (filterSel < 0)
+    return smoothOn ? sp.aInclS[k] + sp.aSkipS[k] : sp.aIncl[k] + sp.aSkip[k];
+  return smoothOn ? sp.fActS[k] : sp.fAct[k];
 }
 
 let vmaxDiff = 1, vmaxSum = 1;  // 98th percentile for the current selection
@@ -533,7 +779,9 @@ const sdCtx = sdCanvas.getContext("2d");
 const sdVals = new Float32Array(NA);
 const sdCnt = new Int32Array(NA);
 let sdMax = 1;
-const SD_MIN_SPECIES = 2;  // columns with fewer populated cells render as no data
+// Columns with fewer populated cells render as no data. Also keeps the ddof=1
+// denominator (n - 1) >= 1.
+const SD_MIN_SPECIES = 2;
 
 function computeSD() {
   const sum = new Float64Array(NA), sq = new Float64Array(NA);
@@ -549,8 +797,9 @@ function computeSD() {
   const seen = [];
   for (let i = 0; i < NA; i++) {
     if (sdCnt[i] >= SD_MIN_SPECIES) {
-      const m = sum[i] / sdCnt[i];
-      sdVals[i] = Math.sqrt(Math.max(0, sq[i] / sdCnt[i] - m * m));
+      // Sample SD (ddof=1), matching the training loss's column-SD estimator.
+      const n = sdCnt[i], m = sum[i] / n;
+      sdVals[i] = Math.sqrt(Math.max(0, (sq[i] - n * m * m) / (n - 1)));
       seen.push(sdVals[i]);
     } else sdVals[i] = NaN;
   }
@@ -643,6 +892,7 @@ function renderLegend() {
 // ---- tooltip ----
 const tooltip = document.getElementById("tooltip");
 const cellbox = document.getElementById("cellbox");
+const ttActs = new Float32Array(2 * NF);
 let pinned = false;
 
 function showTooltip(s, col, clientX, clientY) {
@@ -650,28 +900,30 @@ function showTooltip(s, col, clientX, clientY) {
   const k = sp.winOfCol[col];
   if (k < 0) { hideHover(); return; }
 
-  windowActs(sp.codes, k, scratch);
+  if (smoothOn) windowActsSmoothed(sp, k, ttActs);
+  else windowActs(sp.codes, k, ttActs);
   const contribs = [];
   for (let f = 0; f < NF; f++) {
     contribs.push({ label: "I" + String(f).padStart(2, "0"),
-                    cls: "inc" + (filterSel === f ? " sel" : ""), v: scratch[f] });
+                    cls: "inc" + (filterSel === f ? " sel" : ""), v: ttActs[f] });
     contribs.push({ label: "S" + String(f).padStart(2, "0"),
                     cls: "skp" + (filterSel === NF + f ? " sel" : ""),
-                    v: mode === "diff" ? -scratch[NF + f] : scratch[NF + f] });
+                    v: mode === "diff" ? -ttActs[NF + f] : ttActs[NF + f] });
   }
   contribs.sort((a, b) => b.v - a.v);
   const value = mode === "diff" ? valDiff(sp, k) : valSum(sp, k);
 
-  const c0 = sp.cols[k], c5 = sp.cols[k + 5];
-  const gap = c5 - c0 !== 5;
-  const modeLabel = filterSel < 0
+  const c0 = sp.cols[k], c5 = sp.cols[k + K - 1];
+  const gap = c5 - c0 !== K - 1;
+  const modeLabel = (filterSel < 0
     ? (mode === "diff" ? "Incl − Skip" : "Incl + Skip")
-    : filterName(filterSel) + " contribution";
+    : filterName(filterSel) + " contribution")
+    + (smoothOn ? ` (smoothed σ${DATA.smooth_sigma})` : "");
   tooltip.innerHTML =
     `<div class="tt-species">${DATA.species[s].replace(/_/g, " ")}</div>` +
     `<div class="tt-meta">window ${k} &middot; aligned cols ${c0}–${c5}` +
     (gap ? ` <span class="tt-gap">spans gaps</span>` : "") + `</div>` +
-    `<div class="tt-mer">${sp.seq.slice(k, k + 6)}</div>` +
+    `<div class="tt-mer">${sp.seq.slice(k, k + K)}</div>` +
     `<div class="tt-val">${modeLabel} = <b>${value.toFixed(4)}</b></div>` +
     `<div id="contribs">` +
     contribs.map(c =>
@@ -701,9 +953,10 @@ function hideHover() {
 }
 
 function showSDTooltip(col, clientX, clientY) {
-  const modeLabel = filterSel < 0
+  const modeLabel = (filterSel < 0
     ? (mode === "diff" ? "Incl − Skip" : "Incl + Skip")
-    : filterName(filterSel) + " contribution";
+    : filterName(filterSel) + " contribution")
+    + (smoothOn ? ` (smoothed σ${DATA.smooth_sigma})` : "");
   tooltip.innerHTML =
     `<div class="tt-species">cross-species SD</div>` +
     `<div class="tt-meta">aligned col ${col} &middot; ${sdCnt[col]} species with a window here</div>` +
@@ -765,11 +1018,30 @@ document.getElementById("modeSeg").addEventListener("click", e => {
   renderSDLegend();
   hideHover();
 });
+document.getElementById("smoothBtn").textContent = "smoothed σ" + DATA.smooth_sigma;
+document.getElementById("smoothSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  const on = b.dataset.sm === "1";
+  if (on === smoothOn) return;
+  smoothOn = on;
+  for (const x of e.currentTarget.children) x.classList.toggle("on", x === b);
+  // Smoothing shrinks the spread, so the 98th-percentile scales must be redrawn
+  // too — otherwise the smoothed grid just looks washed out on the raw scale.
+  percentileScales();
+  renderHeatmap();
+  renderLegend();
+  computeSD();
+  renderSD();
+  renderSDLegend();
+  hideHover();
+});
+
 const filterPick = document.getElementById("filterPick");
 {
   const all = document.createElement("option");
   all.value = "-1";
-  all.textContent = "all 40 filters";
+  all.textContent = `all ${2 * NF} filters`;
   filterPick.appendChild(all);
   for (const [bank, label] of [[0, "inclusion"], [1, "skipping"]]) {
     const og = document.createElement("optgroup");
@@ -806,13 +1078,14 @@ document.getElementById("zoomSeg").addEventListener("click", e => {
 // ---- self-check against torch-computed reference cells ----
 function runSelfCheck() {
   const badge = document.getElementById("badge");
+  const checkActs = new Float32Array(2 * NF);
   let fails = 0;
   for (const r of DATA.refs) {
     const sp = SP[r.s];
     const diff = sp.aIncl[r.k] - sp.aSkip[r.k];
     const sum = sp.aIncl[r.k] + sp.aSkip[r.k];
     const ok = Math.abs(diff - r.diff) < 1e-3 && Math.abs(sum - r.sum) < 1e-3 &&
-               sp.seq.slice(r.k, r.k + 6) === r.sixmer && sp.cols[r.k] === r.col;
+               sp.seq.slice(r.k, r.k + K) === r.kmer && sp.cols[r.k] === r.col;
     console.assert(ok, "self-check failed", r, { diff, sum });
     if (!ok) fails++;
     // The tooltip contributions must sum exactly to the cell value.
@@ -820,12 +1093,39 @@ function runSelfCheck() {
     let sI = 0, sS = 0;
     for (let f = 0; f < NF; f++) { sI += scratch[f]; sS += scratch[NF + f]; }
     console.assert(Math.abs(sI - sS - diff) < 1e-4, "contribution-sum mismatch", r);
+
+    // Same cell with smoothing on, against the torch-smoothed reference. Both
+    // arrays exist regardless of the toggle, so this runs either way.
+    const diffS = sp.aInclS[r.k] - sp.aSkipS[r.k];
+    const sumS = sp.aInclS[r.k] + sp.aSkipS[r.k];
+    const okS = Math.abs(diffS - r.diff_s) < 1e-3 && Math.abs(sumS - r.sum_s) < 1e-3;
+    console.assert(okS, "smoothed self-check failed", r, { diffS, sumS });
+    if (!okS) fails++;
+    windowActsSmoothed(sp, r.k, checkActs);
+    let cI = 0, cS = 0;
+    for (let f = 0; f < NF; f++) { cI += checkActs[f]; cS += checkActs[NF + f]; }
+    console.assert(Math.abs(cI - cS - diffS) < 1e-3,
+                   "smoothed contribution-sum mismatch", r);
   }
   const r2 = DATA.sd_ref;  // computed in Python in diff mode, all filters
   if (r2 && mode === "diff" && filterSel < 0) {
     const ok = sdCnt[r2.col] === r2.n && Math.abs(sdVals[r2.col] - r2.sd) < 1e-3;
     console.assert(ok, "SD self-check failed", r2, { n: sdCnt[r2.col], sd: sdVals[r2.col] });
     if (!ok) fails++;
+    // The same column in smoothed mode, accumulated here so the check does not
+    // depend on which way the toggle happens to be set.
+    let n = 0, sum = 0, sq = 0;
+    for (const sp of SP) {
+      const k = sp.winOfCol[r2.col];
+      if (k < 0) continue;
+      const v = sp.aInclS[k] - sp.aSkipS[k];
+      n++; sum += v; sq += v * v;
+    }
+    const mS = sum / n;
+    const sdS = Math.sqrt(Math.max(0, (sq - n * mS * mS) / (n - 1)));
+    const okS = n === r2.n && Math.abs(sdS - r2.sd_smooth) < 1e-3;
+    console.assert(okS, "smoothed SD self-check failed", r2, { n, sd: sdS });
+    if (!okS) fails++;
   }
   badge.textContent = fails ? `self-check: FAIL (${fails})` : "self-check: OK";
   badge.className = fails ? "fail" : "ok";

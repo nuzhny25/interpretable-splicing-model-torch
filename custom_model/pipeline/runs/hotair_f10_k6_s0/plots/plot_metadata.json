@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy",
+    "hparams": {
+      "gene": "hotair",
+      "gene_label": "HOTAIR",
+      "num_filters": 10,
+      "kernel_size": 6,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 18,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.33054274320602417,
+      "sd_loss": 0.26102414727211,
+      "ortho": 0.06951858103275299,
+      "mean_abs_r": 0.13903715808762074,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.2554375231266022,
+      "within_species_scale": 0.9785973429679871
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.5171073585748672,
+      "sd_loss": 0.33029960095882416,
+      "ortho": 0.18680776059627532,
+      "mean_abs_r": 0.37361552257270647,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.19918057173490525,
+      "within_species_scale": 0.631162166595459
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: HOTAIR | filters: 10+10 incl/skip, kernel: 6 nt | motif: no planted motif | epochs: 500 | final loss 0.3305 (sd 0.2610) | lr 0.01, ortho\u03bb 0.5, pool 18, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/filter_logos_real.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "generated_at": "2026-09-06T11:32:37"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy",
+    "windows_per_bank": 729206,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 362253,
+        "1": 189706,
+        "2": 425764,
+        "3": 274917,
+        "4": 99262,
+        "5": 232222,
+        "6": 110431,
+        "7": 277252,
+        "8": 60476,
+        "9": 377538
+      },
+      "SKIP": {
+        "0": 304684,
+        "1": 316506,
+        "2": 243363,
+        "3": 214627,
+        "4": 190364,
+        "5": 181474,
+        "6": 156052,
+        "7": 150495,
+        "8": 196646,
+        "9": 219969
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TTAGGT",
+        "1": "TTTGTG",
+        "2": "ATGCGG",
+        "3": "CCAACT",
+        "4": "ACTAAC",
+        "5": "CCCGGC",
+        "6": "TAACCA",
+        "7": "CAGGCA",
+        "8": "CCCGTT",
+        "9": "TTTTTA"
+      },
+      "SKIP": {
+        "0": "AATTGG",
+        "1": "GGGGGG",
+        "2": "AAAAAA",
+        "3": "AAAAAA",
+        "4": "AAGCAA",
+        "5": "AAGTTC",
+        "6": "GAACCT",
+        "7": "GGGGCG",
+        "8": "AGGCGA",
+        "9": "GGGCGG"
+      }
+    }
+  }
+}
