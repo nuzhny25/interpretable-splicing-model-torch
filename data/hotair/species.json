@@ -1,0 +1,833 @@
+{
+  "gene": "hotair",
+  "maf": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/hotair.maf",
+  "reference": {
+    "assembly": "hg38",
+    "contig": "hg38.chr12",
+    "start": 53962311,
+    "end": 53974954,
+    "aligned_nt": 12643,
+    "nt_between_blocks": 0
+  },
+  "settings": {
+    "min_coverage": 0.25
+  },
+  "n_aligned": 24651,
+  "n_species": 62,
+  "columns": [
+    {
+      "index": 0,
+      "assembly": "hg38",
+      "name": "human",
+      "contigs": [
+        "hg38.chr12"
+      ],
+      "coverage": 1.0,
+      "ungapped_nt": 12643
+    },
+    {
+      "index": 1,
+      "assembly": "panTro4",
+      "name": "chimp",
+      "contigs": [
+        "panTro4.chr12"
+      ],
+      "coverage": 1.0006,
+      "ungapped_nt": 12651
+    },
+    {
+      "index": 2,
+      "assembly": "gorGor3",
+      "name": "gorilla",
+      "contigs": [
+        "gorGor3.chr12"
+      ],
+      "coverage": 0.9905,
+      "ungapped_nt": 12523
+    },
+    {
+      "index": 3,
+      "assembly": "ponAbe2",
+      "name": "orangutan",
+      "contigs": [
+        "ponAbe2.chr12"
+      ],
+      "coverage": 1.0012,
+      "ungapped_nt": 12658
+    },
+    {
+      "index": 4,
+      "assembly": "nomLeu3",
+      "name": "gibbon",
+      "contigs": [
+        "nomLeu3.chr11"
+      ],
+      "coverage": 0.9233,
+      "ungapped_nt": 11673
+    },
+    {
+      "index": 5,
+      "assembly": "rheMac3",
+      "name": "rhesus",
+      "contigs": [
+        "rheMac3.chr11"
+      ],
+      "coverage": 0.9834,
+      "ungapped_nt": 12433
+    },
+    {
+      "index": 6,
+      "assembly": "macFas5",
+      "name": "macaque",
+      "contigs": [
+        "macFas5.chr11"
+      ],
+      "coverage": 0.9989,
+      "ungapped_nt": 12629
+    },
+    {
+      "index": 7,
+      "assembly": "papAnu2",
+      "name": "baboon",
+      "contigs": [
+        "papAnu2.chr11"
+      ],
+      "coverage": 1.0036,
+      "ungapped_nt": 12688
+    },
+    {
+      "index": 8,
+      "assembly": "chlSab2",
+      "name": "green_monkey",
+      "contigs": [
+        "chlSab2.chr11"
+      ],
+      "coverage": 1.0008,
+      "ungapped_nt": 12653
+    },
+    {
+      "index": 9,
+      "assembly": "calJac3",
+      "name": "marmoset",
+      "contigs": [
+        "calJac3.chr9"
+      ],
+      "coverage": 0.9999,
+      "ungapped_nt": 12642
+    },
+    {
+      "index": 10,
+      "assembly": "saiBol1",
+      "name": "squirrel_monkey",
+      "contigs": [
+        "saiBol1.JH378216"
+      ],
+      "coverage": 0.999,
+      "ungapped_nt": 12630
+    },
+    {
+      "index": 11,
+      "assembly": "otoGar3",
+      "name": "bushbaby",
+      "contigs": [
+        "otoGar3.GL873562"
+      ],
+      "coverage": 0.9896,
+      "ungapped_nt": 12511
+    },
+    {
+      "index": 12,
+      "assembly": "tupChi1",
+      "name": "chinese_tree_shrew",
+      "contigs": [
+        "tupChi1.KB367542"
+      ],
+      "coverage": 0.9856,
+      "ungapped_nt": 12459
+    },
+    {
+      "index": 13,
+      "assembly": "speTri2",
+      "name": "squirrel",
+      "contigs": [
+        "speTri2.JH393322"
+      ],
+      "coverage": 0.9935,
+      "ungapped_nt": 12561
+    },
+    {
+      "index": 14,
+      "assembly": "jacJac1",
+      "name": "lesser_egyptian_jerboa",
+      "contigs": [
+        "jacJac1.JH725438"
+      ],
+      "coverage": 0.9565,
+      "ungapped_nt": 12093
+    },
+    {
+      "index": 15,
+      "assembly": "micOch1",
+      "name": "prairie_vole",
+      "contigs": [
+        "micOch1.chr15"
+      ],
+      "coverage": 0.9415,
+      "ungapped_nt": 11904
+    },
+    {
+      "index": 16,
+      "assembly": "criGri1",
+      "name": "chinese_hamster",
+      "contigs": [
+        "criGri1.KE377251"
+      ],
+      "coverage": 0.9193,
+      "ungapped_nt": 11623
+    },
+    {
+      "index": 17,
+      "assembly": "mesAur1",
+      "name": "golden_hamster",
+      "contigs": [
+        "mesAur1.KB708136"
+      ],
+      "coverage": 0.9657,
+      "ungapped_nt": 12209
+    },
+    {
+      "index": 18,
+      "assembly": "mm10",
+      "name": "mouse",
+      "contigs": [
+        "mm10.chr15"
+      ],
+      "coverage": 0.9503,
+      "ungapped_nt": 12015
+    },
+    {
+      "index": 19,
+      "assembly": "rn6",
+      "name": "rat",
+      "contigs": [
+        "rn6.chr7"
+      ],
+      "coverage": 0.955,
+      "ungapped_nt": 12073
+    },
+    {
+      "index": 20,
+      "assembly": "hetGla2",
+      "name": "naked_mole-rat",
+      "contigs": [
+        "hetGla2.JH602217"
+      ],
+      "coverage": 0.9782,
+      "ungapped_nt": 12367
+    },
+    {
+      "index": 21,
+      "assembly": "cavPor3",
+      "name": "guinea_pig",
+      "contigs": [
+        "cavPor3.scaffold_9"
+      ],
+      "coverage": 0.9693,
+      "ungapped_nt": 12255
+    },
+    {
+      "index": 22,
+      "assembly": "chiLan1",
+      "name": "chinchilla",
+      "contigs": [
+        "chiLan1.JH721918"
+      ],
+      "coverage": 0.9896,
+      "ungapped_nt": 12512
+    },
+    {
+      "index": 23,
+      "assembly": "octDeg1",
+      "name": "brush-tailed_rat",
+      "contigs": [
+        "octDeg1.JH651608"
+      ],
+      "coverage": 0.9917,
+      "ungapped_nt": 12538
+    },
+    {
+      "index": 24,
+      "assembly": "oryCun2",
+      "name": "rabbit",
+      "contigs": [
+        "oryCun2.chr4"
+      ],
+      "coverage": 0.9805,
+      "ungapped_nt": 12397
+    },
+    {
+      "index": 25,
+      "assembly": "ochPri3",
+      "name": "pika",
+      "contigs": [
+        "ochPri3.JH802075"
+      ],
+      "coverage": 0.9949,
+      "ungapped_nt": 12579
+    },
+    {
+      "index": 26,
+      "assembly": "vicPac2",
+      "name": "alpaca",
+      "contigs": [
+        "vicPac2.KB632470"
+      ],
+      "coverage": 0.9256,
+      "ungapped_nt": 11702
+    },
+    {
+      "index": 27,
+      "assembly": "camFer1",
+      "name": "bactrian_camel",
+      "contigs": [
+        "camFer1.KB016878"
+      ],
+      "coverage": 0.8418,
+      "ungapped_nt": 10643
+    },
+    {
+      "index": 28,
+      "assembly": "turTru2",
+      "name": "dolphin",
+      "contigs": [
+        "turTru2.JH472521"
+      ],
+      "coverage": 1.0011,
+      "ungapped_nt": 12657
+    },
+    {
+      "index": 29,
+      "assembly": "orcOrc1",
+      "name": "killer_whale",
+      "contigs": [
+        "orcOrc1.KB316902"
+      ],
+      "coverage": 0.9891,
+      "ungapped_nt": 12505
+    },
+    {
+      "index": 30,
+      "assembly": "panHod1",
+      "name": "tibetan_antelope",
+      "contigs": [
+        "panHod1.KE109220"
+      ],
+      "coverage": 0.894,
+      "ungapped_nt": 11303
+    },
+    {
+      "index": 31,
+      "assembly": "bosTau8",
+      "name": "cow",
+      "contigs": [
+        "bosTau8.chr5"
+      ],
+      "coverage": 0.9779,
+      "ungapped_nt": 12363
+    },
+    {
+      "index": 32,
+      "assembly": "oviAri3",
+      "name": "sheep",
+      "contigs": [
+        "oviAri3.chr3"
+      ],
+      "coverage": 0.9249,
+      "ungapped_nt": 11694
+    },
+    {
+      "index": 33,
+      "assembly": "capHir1",
+      "name": "domestic_goat",
+      "contigs": [
+        "capHir1.chr5"
+      ],
+      "coverage": 0.9087,
+      "ungapped_nt": 11424
+    },
+    {
+      "index": 34,
+      "assembly": "equCab2",
+      "name": "horse",
+      "contigs": [
+        "equCab2.chr6"
+      ],
+      "coverage": 0.9688,
+      "ungapped_nt": 12248
+    },
+    {
+      "index": 35,
+      "assembly": "cerSim1",
+      "name": "white_rhinoceros",
+      "contigs": [
+        "cerSim1.JH767750"
+      ],
+      "coverage": 0.9877,
+      "ungapped_nt": 12487
+    },
+    {
+      "index": 36,
+      "assembly": "felCat8",
+      "name": "cat",
+      "contigs": [
+        "felCat8.chrB4"
+      ],
+      "coverage": 0.9465,
+      "ungapped_nt": 11966
+    },
+    {
+      "index": 37,
+      "assembly": "canFam3",
+      "name": "dog",
+      "contigs": [
+        "canFam3.chr27"
+      ],
+      "coverage": 0.9837,
+      "ungapped_nt": 12437
+    },
+    {
+      "index": 38,
+      "assembly": "musFur1",
+      "name": "ferret",
+      "contigs": [
+        "musFur1.GL897098"
+      ],
+      "coverage": 0.9925,
+      "ungapped_nt": 12547
+    },
+    {
+      "index": 39,
+      "assembly": "ailMel1",
+      "name": "panda",
+      "contigs": [
+        "ailMel1.GL193035.1"
+      ],
+      "coverage": 0.9378,
+      "ungapped_nt": 11856
+    },
+    {
+      "index": 40,
+      "assembly": "odoRosDiv1",
+      "name": "pacific_walrus",
+      "contigs": [
+        "odoRosDiv1.KB229164"
+      ],
+      "coverage": 1.0014,
+      "ungapped_nt": 12661
+    },
+    {
+      "index": 41,
+      "assembly": "lepWed1",
+      "name": "weddell_seal",
+      "contigs": [
+        "lepWed1.KB714815",
+        "lepWed1.KB719454"
+      ],
+      "coverage": 0.9939,
+      "ungapped_nt": 12566
+    },
+    {
+      "index": 42,
+      "assembly": "pteAle1",
+      "name": "black_flying-fox",
+      "contigs": [
+        "pteAle1.KB030275"
+      ],
+      "coverage": 1.0021,
+      "ungapped_nt": 12669
+    },
+    {
+      "index": 43,
+      "assembly": "pteVam1",
+      "name": "megabat",
+      "contigs": [
+        "pteVam1.scaffold_521"
+      ],
+      "coverage": 0.9158,
+      "ungapped_nt": 11579
+    },
+    {
+      "index": 44,
+      "assembly": "eptFus1",
+      "name": "big_brown_bat",
+      "contigs": [
+        "eptFus1.JH977623"
+      ],
+      "coverage": 0.9723,
+      "ungapped_nt": 12293
+    },
+    {
+      "index": 45,
+      "assembly": "myoDav1",
+      "name": "david's_myotis_bat",
+      "contigs": [
+        "myoDav1.KB102468"
+      ],
+      "coverage": 0.9268,
+      "ungapped_nt": 11718
+    },
+    {
+      "index": 46,
+      "assembly": "myoLuc2",
+      "name": "little_brown_bat",
+      "contigs": [
+        "myoLuc2.GL429927"
+      ],
+      "coverage": 0.9568,
+      "ungapped_nt": 12097
+    },
+    {
+      "index": 47,
+      "assembly": "eriEur2",
+      "name": "hedgehog",
+      "contigs": [
+        "eriEur2.JH835374"
+      ],
+      "coverage": 0.9616,
+      "ungapped_nt": 12157
+    },
+    {
+      "index": 48,
+      "assembly": "sorAra2",
+      "name": "shrew",
+      "contigs": [
+        "sorAra2.JH798149"
+      ],
+      "coverage": 0.9944,
+      "ungapped_nt": 12572
+    },
+    {
+      "index": 49,
+      "assembly": "conCri1",
+      "name": "star-nosed_mole",
+      "contigs": [
+        "conCri1.JH655911"
+      ],
+      "coverage": 0.9321,
+      "ungapped_nt": 11785
+    },
+    {
+      "index": 50,
+      "assembly": "loxAfr3",
+      "name": "elephant",
+      "contigs": [
+        "loxAfr3.scaffold_2"
+      ],
+      "coverage": 0.9914,
+      "ungapped_nt": 12534
+    },
+    {
+      "index": 51,
+      "assembly": "eleEdw1",
+      "name": "cape_elephant_shrew",
+      "contigs": [
+        "eleEdw1.JH947159"
+      ],
+      "coverage": 0.9643,
+      "ungapped_nt": 12192
+    },
+    {
+      "index": 52,
+      "assembly": "triMan1",
+      "name": "manatee",
+      "contigs": [
+        "triMan1.JH594633"
+      ],
+      "coverage": 0.9782,
+      "ungapped_nt": 12368
+    },
+    {
+      "index": 53,
+      "assembly": "chrAsi1",
+      "name": "cape_golden_mole",
+      "contigs": [
+        "chrAsi1.JH823394"
+      ],
+      "coverage": 0.9709,
+      "ungapped_nt": 12275
+    },
+    {
+      "index": 54,
+      "assembly": "echTel2",
+      "name": "tenrec",
+      "contigs": [
+        "echTel2.JH980427"
+      ],
+      "coverage": 0.9697,
+      "ungapped_nt": 12260
+    },
+    {
+      "index": 55,
+      "assembly": "oryAfe1",
+      "name": "aardvark",
+      "contigs": [
+        "oryAfe1.JH863965"
+      ],
+      "coverage": 0.9991,
+      "ungapped_nt": 12632
+    },
+    {
+      "index": 56,
+      "assembly": "dasNov3",
+      "name": "armadillo",
+      "contigs": [
+        "dasNov3.JH569826"
+      ],
+      "coverage": 0.9347,
+      "ungapped_nt": 11817
+    },
+    {
+      "index": 57,
+      "assembly": "sarHar1",
+      "name": "tasmanian_devil",
+      "contigs": [
+        "sarHar1.chr5_GL861729_random"
+      ],
+      "coverage": 0.7516,
+      "ungapped_nt": 9503
+    },
+    {
+      "index": 58,
+      "assembly": "macEug2",
+      "name": "wallaby",
+      "contigs": [
+        "macEug2.ABQO010668095",
+        "macEug2.GL095602"
+      ],
+      "coverage": 0.5825,
+      "ungapped_nt": 7354
+    },
+    {
+      "index": 59,
+      "assembly": "ornAna1",
+      "name": "Platypus",
+      "contigs": [
+        "ornAna1.Contig13135",
+        "ornAna1.Contig14907",
+        "ornAna1.Ultra231"
+      ],
+      "coverage": 0.3422,
+      "ungapped_nt": 4327
+    },
+    {
+      "index": 60,
+      "assembly": "allMis1",
+      "name": "allMis1",
+      "contigs": [
+        "allMis1.JH733757",
+        "allMis1.JH734798",
+        "allMis1.JH736676",
+        "allMis1.JH739658"
+      ],
+      "coverage": 0.2801,
+      "ungapped_nt": 3541
+    },
+    {
+      "index": 61,
+      "assembly": "susScr3",
+      "name": "pig",
+      "contigs": [
+        "susScr3.chr5"
+      ],
+      "coverage": 0.543,
+      "ungapped_nt": 6865
+    }
+  ],
+  "dropped": [
+    {
+      "assembly": "colLiv1",
+      "name": "colLiv1",
+      "coverage": 0.2283
+    },
+    {
+      "assembly": "amaVit1",
+      "name": "amaVit1",
+      "coverage": 0.2253
+    },
+    {
+      "assembly": "falPer1",
+      "name": "falPer1",
+      "coverage": 0.2014
+    },
+    {
+      "assembly": "melUnd1",
+      "name": "melUnd1",
+      "coverage": 0.201
+    },
+    {
+      "assembly": "cheMyd1",
+      "name": "cheMyd1",
+      "coverage": 0.1882
+    },
+    {
+      "assembly": "monDom5",
+      "name": "opossum",
+      "coverage": 0.179
+    },
+    {
+      "assembly": "falChe1",
+      "name": "falChe1",
+      "coverage": 0.1789
+    },
+    {
+      "assembly": "pelSin1",
+      "name": "pelSin1",
+      "coverage": 0.1765
+    },
+    {
+      "assembly": "anaPla1",
+      "name": "anaPla1",
+      "coverage": 0.1724
+    },
+    {
+      "assembly": "xenTro7",
+      "name": "xenTro7",
+      "coverage": 0.172
+    },
+    {
+      "assembly": "apaSpi1",
+      "name": "apaSpi1",
+      "coverage": 0.1649
+    },
+    {
+      "assembly": "chrPic2",
+      "name": "chrPic2",
+      "coverage": 0.1643
+    },
+    {
+      "assembly": "pseHum1",
+      "name": "pseHum1",
+      "coverage": 0.157
+    },
+    {
+      "assembly": "latCha1",
+      "name": "latCha1",
+      "coverage": 0.1559
+    },
+    {
+      "assembly": "galGal4",
+      "name": "galGal4",
+      "coverage": 0.1542
+    },
+    {
+      "assembly": "araMac1",
+      "name": "araMac1",
+      "coverage": 0.1444
+    },
+    {
+      "assembly": "anoCar2",
+      "name": "anoCar2",
+      "coverage": 0.1356
+    },
+    {
+      "assembly": "danRer10",
+      "name": "danRer10",
+      "coverage": 0.1279
+    },
+    {
+      "assembly": "ficAlb2",
+      "name": "ficAlb2",
+      "coverage": 0.1201
+    },
+    {
+      "assembly": "astMex1",
+      "name": "astMex1",
+      "coverage": 0.1195
+    },
+    {
+      "assembly": "takFla1",
+      "name": "takFla1",
+      "coverage": 0.119
+    },
+    {
+      "assembly": "oreNil2",
+      "name": "oreNil2",
+      "coverage": 0.1168
+    },
+    {
+      "assembly": "fr3",
+      "name": "fr3",
+      "coverage": 0.1136
+    },
+    {
+      "assembly": "taeGut2",
+      "name": "taeGut2",
+      "coverage": 0.111
+    },
+    {
+      "assembly": "oryLat2",
+      "name": "oryLat2",
+      "coverage": 0.1074
+    },
+    {
+      "assembly": "melGal1",
+      "name": "melGal1",
+      "coverage": 0.1042
+    },
+    {
+      "assembly": "lepOcu1",
+      "name": "lepOcu1",
+      "coverage": 0.1023
+    },
+    {
+      "assembly": "xipMac1",
+      "name": "xipMac1",
+      "coverage": 0.1014
+    },
+    {
+      "assembly": "neoBri1",
+      "name": "neoBri1",
+      "coverage": 0.1013
+    },
+    {
+      "assembly": "hapBur1",
+      "name": "hapBur1",
+      "coverage": 0.1013
+    },
+    {
+      "assembly": "punNye1",
+      "name": "punNye1",
+      "coverage": 0.1013
+    },
+    {
+      "assembly": "mayZeb1",
+      "name": "mayZeb1",
+      "coverage": 0.101
+    },
+    {
+      "assembly": "gasAcu1",
+      "name": "gasAcu1",
+      "coverage": 0.0995
+    },
+    {
+      "assembly": "tetNig2",
+      "name": "tetNig2",
+      "coverage": 0.0983
+    },
+    {
+      "assembly": "gadMor1",
+      "name": "gadMor1",
+      "coverage": 0.0959
+    },
+    {
+      "assembly": "zonAlb1",
+      "name": "zonAlb1",
+      "coverage": 0.0929
+    },
+    {
+      "assembly": "geoFor1",
+      "name": "geoFor1",
+      "coverage": 0.0826
+    }
+  ]
+}
