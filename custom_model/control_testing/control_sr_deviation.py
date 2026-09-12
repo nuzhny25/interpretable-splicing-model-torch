@@ -13,6 +13,22 @@ training loss uses:
   * ``mean_col_abs_dev``      — mean of ``col_abs_dev`` over valid columns.
   * ``norm_loss``             — ``mean(col_abs_dev[valid] / within_species_scale)``,
                                 i.e. the exact training ``sd_loss`` for that matrix.
+  * ``mean_activation``       — mean summed softplus over every (species, window),
+                                the lambda-free quantity the L1 penalty scales.
+  * ``l1``                    — ``L1_LAMBDA * mean_activation``, the training L1 term.
+  * ``mean_abs_r``            — mean |Pearson r| over the 780 pairs of the 40 filter
+                                channels, scored on every ``POOL_LENGTH``-mer of the
+                                evaluated matrix (the lambda-free orthogonality term).
+  * ``ortho``                 — ``ORTHO_LAMBDA * mean_abs_r``.
+  * ``total_loss``            — ``norm_loss + ortho + l1``, the full training
+                                objective of custom_real_train_orthogonality.py.
+
+Every one of these is recomputed *on the matrix being evaluated*, so the random and
+shuffled controls test all three terms rather than only the conservation numerator.
+``mean_abs_r`` is the term that answers "is the low filter redundancy a property of
+the data, or just of the penalty?": the penalty is applied identically whatever the
+input, so a control matrix that scores an equally low mean |r| means the ortho term
+learned nothing alignment-specific.
 
 Evaluated matrices (204 total):
   1. 100 gap-preserving random matrices  — real gap pattern kept, every nucleotide
@@ -40,8 +56,16 @@ the original-PNAS control in dataset_preparations/aligned_permutations.py.
 The metric is inlined here (a deterministic all-species pass) rather than imported
 from the trainer, but computes exactly the loss's numerator/denominator, including
 the same Gaussian smoothing of the SR track.
+
+Everything is saved to ``control_results.npz`` and then rendered to
+``control_summary.png`` by plot_control_results.py, which is where the comparisons
+are read: at eight metrics across six conditions they are a figure, not a console
+table. The npz carries a ``meta_json`` stamp of the run so that figure can identify
+itself, and the plotter can be re-run against the npz alone to retune the figure
+without repeating the ~2.6-minute scan.
 """
 
+import json
 import math
 import os
 import sys
@@ -63,14 +87,42 @@ from custom_utils import str_to_vector  # noqa: E402
 MATRIX_PATH = os.path.join(
     CUSTOM_DIR, "..", "data", "multiz100", "alignment_matrix.npy"
 )
-WEIGHTS_PATH = os.path.join(CUSTOM_DIR, "weights", "real_weights_aad.pt")
+WEIGHTS_PATH = os.path.join(CUSTOM_DIR, "weights", "real_weights_ortho.pt")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "control_results.npz")
+# Figure rendered from OUTPUT_PATH at the end of the run. The comparisons this
+# script used to print as two console tables live here instead; plot_control_results.py
+# can re-render it from the npz alone, without repeating the scan.
+PLOT_PATH = os.path.join(os.path.dirname(__file__), "control_summary.png")
 
 N_RANDOM = 100  # number of gap-preserving random matrices
 N_SHUFFLE = 100  # number of aligned-row-shuffled matrices
 MIN_SPECIES = 5  # a column counts only if >= this many species present (matches loss)
 SMOOTH_SIGMA = 1.5  # Gaussian smoothing of the SR profile along position (matches loss)
 SEED = 0
+
+# ── Penalty terms (mirroring custom_real_train_orthogonality.py) ─────────────
+# Defaults only: main() overrides both lambdas from the checkpoint's own metadata
+# when it carries them, so the reported total_loss is the loss that checkpoint was
+# actually trained under rather than whatever is hardcoded here.
+L1_LAMBDA = 0.02  # strength of the L1 penalty on the summed softplus activations
+ORTHO_LAMBDA = 0.5  # strength of the mean-|r| orthogonality penalty
+POOL_LENGTH = 20  # nt each filter is scored on for the correlation (--pool-length 20)
+POOL_WINDOWS = POOL_LENGTH - 5  # width of the box sum along the activation track
+ORTHO_EPS = 1e-12  # variance floor, so a filter gone flat can't produce 0/0 in corr
+NUM_FILTERS = 20  # per bank; incl + skip -> 40 correlated channels
+
+# Every scalar recorded per matrix. Driving the results dict, the run-to-run std /
+# n-std-from-original block and the console summary off one list keeps them in step.
+SCALAR_METRICS = (
+    "mean_col_abs_dev",
+    "within_species_scale",
+    "norm_loss",
+    "mean_activation",
+    "l1",
+    "mean_abs_r",
+    "ortho",
+    "total_loss",
+)
 
 NUCLEOTIDES = np.array(["A", "C", "G", "T"])
 GAP_CHARS = ("-", "N")
@@ -109,8 +161,18 @@ def complement_matrix(matrix):
     return _complement_vec(matrix).astype("<U1")
 
 
-def compute_metric(matrix, model, gauss_kernel, smooth_radius, device):
-    """Per-column absolute deviation of SR + within-species scale for one matrix.
+def compute_metric(
+    matrix,
+    model,
+    gauss_kernel,
+    smooth_radius,
+    device,
+    box_kernel=None,
+    triu=None,
+    l1_lambda=L1_LAMBDA,
+    ortho_lambda=ORTHO_LAMBDA,
+):
+    """Every term of the training loss, evaluated on one matrix.
 
     Replicates the training loss over *all* species in ``matrix``: score each
     species' gap-removed sequence with ``compute_sr_profile``, Gaussian-smooth the
@@ -118,17 +180,58 @@ def compute_metric(matrix, model, gauss_kernel, smooth_radius, device):
     then take the NaN-aware cross-species mean absolute deviation down each column
     (numerator) divided by the within-species dynamic range (denominator).
 
+    The ``compute_sr_profile`` call is written out inline as its two softplus
+    convolutions because the orthogonality term needs the 40 *per-filter* tracks,
+    and the method returns only their sum over the filter axis. Summing the two
+    expansions reproduces it exactly, so the SR numbers are unchanged.
+
+    Both penalty terms are then accumulated over the same pass: the mean summed
+    softplus (L1), and the sufficient statistics of the 40 pooled filter scores
+    (orthogonality). Following the trainer, the correlation is taken over the whole
+    matrix — every ``POOL_LENGTH``-mer of every species is one observation — so its
+    running sum and Gram matrix are reduced once, after the species loop.
+
     Args:
         matrix: ``(n_aligned, n_species)`` array of single characters; gaps are
             ``-`` / ``N``, everything else (incl. lowercase) is a nucleotide.
+        box_kernel: Precomputed ``(40, 1, POOL_WINDOWS)`` grouped-conv box kernel
+            for the pooled filter scores. Built here when None.
+        triu: Precomputed ``(2, 780)`` upper-triangle index pair for the 40x40
+            correlation matrix. Built here when None.
+        l1_lambda: Scales ``mean_activation`` into the reported ``l1``.
+        ortho_lambda: Scales ``mean_abs_r`` into the reported ``ortho``.
 
     Returns:
-        ``(col_abs_dev, within_species_scale, mean_col_abs_dev, norm_loss)`` where
-        ``col_abs_dev`` is a length-``n_aligned`` array with NaN at invalid columns.
+        Dict with the length-``n_aligned`` ``"col_abs_dev"`` array (NaN at invalid
+        columns) plus every scalar named in ``SCALAR_METRICS``.
     """
+    # Same objects the trainer builds once outside its epoch loop. The box kernel is
+    # deliberately *not* sum-normalized: the pooled score sums the softplus over the
+    # windows inside a POOL_LENGTH-mer rather than averaging them.
+    if box_kernel is None:
+        box_kernel = torch.ones(2 * NUM_FILTERS, 1, POOL_WINDOWS, device=device)
+    if triu is None:
+        triu = torch.triu_indices(
+            2 * NUM_FILTERS, 2 * NUM_FILTERS, offset=1, device=device
+        )
     n_aligned, n_species = matrix.shape
     values = torch.zeros(n_species, n_aligned, device=device)
     mask = torch.zeros(n_species, n_aligned, device=device)
+
+    # L1 accumulators: sequences differ in length, so track the running activation
+    # sum and element count and divide once at the end (matches the trainer).
+    act_sum = torch.zeros((), device=device)
+    act_count = 0
+
+    # Orthogonality accumulators, in float64: a pooled score is a sum of POOL_WINDOWS
+    # non-negative softplus values, so its mean dwarfs its spread and
+    # E[p^2] - E[p]^2 is a difference of large near-equal numbers. Only 40 and 40x40
+    # wide, so double costs nothing.
+    ortho_sum = torch.zeros(2 * NUM_FILTERS, dtype=torch.float64, device=device)
+    ortho_gram = torch.zeros(
+        2 * NUM_FILTERS, 2 * NUM_FILTERS, dtype=torch.float64, device=device
+    )
+    ortho_n = 0
 
     for j in range(n_species):
         row = matrix[:, j]
@@ -140,7 +243,31 @@ def compute_metric(matrix, model, gauss_kernel, smooth_radius, device):
 
         x_seq = torch.tensor(str_to_vector(seq), dtype=torch.float32, device=device)
         with torch.no_grad():
-            sr_j = model.compute_sr_profile(x_seq.unsqueeze(0)).squeeze(0)  # (Lj-5,)
+            # compute_sr_profile written out, so the 40 per-filter tracks survive for
+            # the orthogonality term; summing over dim 1 is that method exactly.
+            f_incl = F.softplus(model.conv_incl(x_seq.unsqueeze(0)))  # (1, 20, Lj-5)
+            f_skip = F.softplus(model.conv_skip(x_seq.unsqueeze(0)))  # (1, 20, Lj-5)
+            a_incl, a_skip = f_incl.sum(1), f_skip.sum(1)  # both (1, Lj-5), >= 0
+            sr_j = (a_incl - a_skip).squeeze(0)  # (Lj-5,)
+
+            # L1 term, over every (species, window) activation of this matrix.
+            act_sum = act_sum + (a_incl + a_skip).sum()
+            act_count += a_incl.numel()
+
+            # Pooled POOL_LENGTH-mer scores for the orthogonality term, taken from the
+            # *raw* (unsmoothed) activations — the pooled mode has no position axis
+            # left to smooth. Summing softplus over the POOL_WINDOWS windows inside a
+            # POOL_LENGTH-mer is a box sum along the activation track, so one grouped
+            # conv scores every POOL_LENGTH-mer of this species without ever
+            # materializing them.
+            act = torch.cat([f_incl, f_skip], dim=1)  # (1, 40, Lj-5)
+            if act.shape[-1] >= POOL_WINDOWS:  # else too short for one POOL_LENGTH-mer
+                # -> (40, Lj-19): one score per filter per POOL_LENGTH-mer offset.
+                pooled = F.conv1d(act, box_kernel, groups=2 * NUM_FILTERS).squeeze(0)
+                p = pooled.double()
+                ortho_sum = ortho_sum + p.sum(1)
+                ortho_gram = ortho_gram + p @ p.T
+                ortho_n += pooled.shape[-1]
 
             # Gaussian-smooth the dense (gap-free) SR track along position — same as
             # the loss (reflect padding so the position-0 block isn't damped).
@@ -180,16 +307,43 @@ def compute_metric(matrix, model, gauss_kernel, smooth_radius, device):
     mean_col_abs_dev = col_abs_dev[valid].mean()
     norm_loss = (col_abs_dev[valid] / within_species_scale).mean()
 
+    # L1 term: mean summed softplus over every (species, window) activation.
+    mean_activation = float((act_sum / act_count).item()) if act_count else float("nan")
+
+    # Orthogonality term: the accumulators hold sum(p) and sum(p p^T) over every
+    # POOL_LENGTH-mer of the matrix, so the population covariance of the 40 pooled
+    # filter scores follows in closed form. ddof is irrelevant — correlation
+    # normalizes it away — which is why this matches the ddof=1 np.cov path in
+    # filter_coactivation_covariance.py exactly rather than approximately.
+    if ortho_n:
+        mean_p = ortho_sum / ortho_n
+        cov_p = ortho_gram / ortho_n - torch.outer(mean_p, mean_p)  # (40, 40)
+        std_p = cov_p.diagonal().clamp(min=ORTHO_EPS).sqrt()  # floor: dead filters
+        corr_p = cov_p / torch.outer(std_p, std_p)
+        # abs(), not r^2 or signed r: a signed mean is minimized by driving
+        # correlations negative, which is anti-correlation, not orthogonality.
+        mean_abs_r = float(corr_p[triu[0], triu[1]].abs().mean().item())
+    else:
+        # No species long enough for even one POOL_LENGTH-mer.
+        mean_abs_r = float("nan")
+
     # NaN-mask invalid columns for the saved per-column array.
     col_abs_dev_out = col_abs_dev.clone()
     col_abs_dev_out[~valid] = float("nan")
 
-    return (
-        col_abs_dev_out.cpu().numpy(),
-        float(within_species_scale.item()),
-        float(mean_col_abs_dev.item()),
-        float(norm_loss.item()),
-    )
+    l1 = l1_lambda * mean_activation
+    ortho = ortho_lambda * mean_abs_r
+    return {
+        "col_abs_dev": col_abs_dev_out.cpu().numpy(),
+        "within_species_scale": float(within_species_scale.item()),
+        "mean_col_abs_dev": float(mean_col_abs_dev.item()),
+        "norm_loss": float(norm_loss.item()),
+        "mean_activation": mean_activation,
+        "l1": l1,
+        "mean_abs_r": mean_abs_r,
+        "ortho": ortho,
+        "total_loss": float(norm_loss.item()) + ortho + l1,
+    }
 
 
 def gap_preserving_random(matrix, rng):
@@ -223,6 +377,28 @@ def main():
     model.eval()
     print(f"Loaded model weights from {os.path.normpath(WEIGHTS_PATH)}")
 
+    # Penalty strengths: prefer the ones this checkpoint was actually trained under,
+    # so total_loss is its real objective. A checkpoint from a trainer without an
+    # orthogonality term (e.g. real_weights_aad.pt) carries no "ortho_lambda", and
+    # falls back to the module default — its mean_abs_r is still meaningful, but its
+    # total_loss is then a loss that run never optimized.
+    ckpt_hparams = (
+        (ckpt.get("metadata") or {}).get("hparams", {})
+        if isinstance(ckpt, dict)
+        else {}
+    )
+    l1_lambda = float(ckpt_hparams.get("l1_lambda", L1_LAMBDA))
+    ortho_lambda = float(ckpt_hparams.get("ortho_lambda", ORTHO_LAMBDA))
+    print(
+        f"Penalty strengths: l1_lambda={l1_lambda:g}, ortho_lambda={ortho_lambda:g} "
+        f"({'from the checkpoint metadata' if ckpt_hparams else 'module defaults — checkpoint carries no hparams'})"
+    )
+    if "ortho_lambda" not in ckpt_hparams:
+        print(
+            "  NOTE: this checkpoint records no ortho_lambda, so total_loss below is "
+            "not an objective it was trained under; read mean_abs_r on its own."
+        )
+
     gauss_kernel, smooth_radius = build_smoothing_kernel(SMOOTH_SIGMA, device)
     if gauss_kernel is not None:
         print(
@@ -230,8 +406,30 @@ def main():
             f"kernel size={gauss_kernel.shape[-1]}"
         )
 
+    # Built once and reused across all 204 evaluations, as in the trainer: the
+    # grouped box kernel that turns the 40 activation tracks into pooled
+    # POOL_LENGTH-mer scores, and the 780 unique off-diagonal pairs of the 40x40
+    # correlation matrix (incl-incl, skip-skip and incl-skip alike).
+    box_kernel = torch.ones(2 * NUM_FILTERS, 1, POOL_WINDOWS, device=device)
+    triu = torch.triu_indices(2 * NUM_FILTERS, 2 * NUM_FILTERS, offset=1, device=device)
+    print(
+        f"Orthogonality term: mean |r| over the {triu.shape[1]} pairs of "
+        f"{2 * NUM_FILTERS} filter channels, on every {POOL_LENGTH}-mer of the "
+        f"evaluated matrix ({POOL_WINDOWS} windows summed per {POOL_LENGTH}-mer)"
+    )
+
     def evaluate(mat):
-        return compute_metric(mat, model, gauss_kernel, smooth_radius, device)
+        return compute_metric(
+            mat,
+            model,
+            gauss_kernel,
+            smooth_radius,
+            device,
+            box_kernel=box_kernel,
+            triu=triu,
+            l1_lambda=l1_lambda,
+            ortho_lambda=ortho_lambda,
+        )
 
     results = {}
 
@@ -244,13 +442,14 @@ def main():
         "reverse_complement": complement[::-1],
     }
     for name, mat in orientations.items():
-        col_ad, wss, mean_ad, nloss = evaluate(mat)
-        results[f"{name}_col_abs_dev"] = col_ad
-        results[f"{name}_within_species_scale"] = np.float64(wss)
-        results[f"{name}_mean_col_abs_dev"] = np.float64(mean_ad)
-        results[f"{name}_norm_loss"] = np.float64(nloss)
+        m = evaluate(mat)
+        results[f"{name}_col_abs_dev"] = m["col_abs_dev"]
+        for metric in SCALAR_METRICS:
+            results[f"{name}_{metric}"] = np.float64(m[metric])
         print(
-            f"[orientation] {name:20s} mean_col_abs_dev={mean_ad:.6f}  norm_loss={nloss:.6f}"
+            f"[orientation] {name:20s} mean_col_abs_dev={m['mean_col_abs_dev']:.6f}  "
+            f"norm_loss={m['norm_loss']:.6f}  mean|r|={m['mean_abs_r']:.4f}  "
+            f"l1={m['l1']:.6f}  total_loss={m['total_loss']:.6f}"
         )
 
     # ── 2. 100 gap-preserving random matrices ────────────────────────────────
@@ -261,13 +460,20 @@ def main():
     ]
     for prefix, n_iter, make_matrix in control_specs:
         col_ad = np.empty((n_iter, n_aligned), dtype=np.float64)
-        wss = np.empty(n_iter, dtype=np.float64)
-        mean_ad = np.empty(n_iter, dtype=np.float64)
-        nloss = np.empty(n_iter, dtype=np.float64)
+        scalars = {
+            metric: np.empty(n_iter, dtype=np.float64) for metric in SCALAR_METRICS
+        }
         for i in range(n_iter):
-            col_ad[i], wss[i], mean_ad[i], nloss[i] = evaluate(make_matrix(matrix, rng))
+            m = evaluate(make_matrix(matrix, rng))
+            col_ad[i] = m["col_abs_dev"]
+            for metric in SCALAR_METRICS:
+                scalars[metric][i] = m[metric]
             if (i + 1) % 25 == 0 or i == 0:
-                print(f"[{prefix}] {i + 1}/{n_iter}  mean_col_abs_dev={mean_ad[i]:.6f}")
+                print(
+                    f"[{prefix}] {i + 1}/{n_iter}  "
+                    f"mean_col_abs_dev={scalars['mean_col_abs_dev'][i]:.6f}  "
+                    f"mean|r|={scalars['mean_abs_r'][i]:.4f}"
+                )
         # Collapse the n_iter runs to a single average — the individual per-matrix
         # values are nearly identical, so only the average over all runs is recorded:
         # scalar summaries plus the per-column deviation averaged across the runs.
@@ -277,18 +483,13 @@ def main():
             results[f"{prefix}_col_abs_dev"] = np.nanmean(
                 col_ad, axis=0
             )  # (n_aligned,)
-        results[f"{prefix}_within_species_scale"] = np.float64(wss.mean())
-        results[f"{prefix}_mean_col_abs_dev"] = np.float64(mean_ad.mean())
-        results[f"{prefix}_norm_loss"] = np.float64(nloss.mean())
         # Standard deviation of each scalar metric across the n_iter runs, and how
         # many of those standard deviations the control average lies from the
         # original value (the control-test z-statistic). The original scalars were
         # filled by the orientations loop above, so they are available here.
-        for metric, dist in (
-            ("mean_col_abs_dev", mean_ad),
-            ("within_species_scale", wss),
-            ("norm_loss", nloss),
-        ):
+        for metric in SCALAR_METRICS:
+            dist = scalars[metric]
+            results[f"{prefix}_{metric}"] = np.float64(dist.mean())
             std = float(dist.std(ddof=1))
             orig = float(results[f"original_{metric}"])
             n_std = (
@@ -301,42 +502,38 @@ def main():
         print(
             f"[{prefix}] average over {n_iter}: "
             f"mean_col_abs_dev={float(results[f'{prefix}_mean_col_abs_dev']):.6f}  "
-            f"norm_loss={float(results[f'{prefix}_norm_loss']):.6f}"
+            f"norm_loss={float(results[f'{prefix}_norm_loss']):.6f}  "
+            f"mean|r|={float(results[f'{prefix}_mean_abs_r']):.4f}  "
+            f"total_loss={float(results[f'{prefix}_total_loss']):.6f}"
         )
 
     # ── Save everything ──────────────────────────────────────────────────────
+    # Run identity, stamped into the npz so the figure rendered from it can say
+    # which checkpoint and settings produced these numbers. Mirrors the
+    # "hparams_json" the trainer writes into its own history npz.
+    results["meta_json"] = json.dumps(
+        {
+            "weights_path": WEIGHTS_PATH,
+            "min_species": MIN_SPECIES,
+            "smooth_sigma": SMOOTH_SIGMA,
+            "n_random": N_RANDOM,
+            "n_shuffle": N_SHUFFLE,
+            "l1_lambda": l1_lambda,
+            "ortho_lambda": ortho_lambda,
+            "pool_length": POOL_LENGTH,
+        }
+    )
     np.savez(OUTPUT_PATH, **results)
     print(f"\nSaved control results to {os.path.normpath(OUTPUT_PATH)}")
 
-    # ── Console summary: original vs the random & shuffled averages over 100 ──
-    counts = {"random": N_RANDOM, "shuffled": N_SHUFFLE}
-    print("\n=== Control summary (original vs. control averages) ===")
-    for metric in ("mean_col_abs_dev", "within_species_scale", "norm_loss"):
-        orig = float(results[f"original_{metric}"])
-        print(f"\n{metric}: original = {orig:.6f}")
-        for prefix in ("random", "shuffled"):
-            avg = float(results[f"{prefix}_{metric}"])
-            std = float(results[f"{prefix}_{metric}_std"])
-            n_std = float(results[f"{prefix}_{metric}_n_std_from_original"])
-            ratio = avg / orig if orig else float("nan")
-            print(
-                f"  {prefix:8s} average over {counts[prefix]:3d} = {avg:.6f}  "
-                f"({ratio:.2f}x the original; run-to-run std={std:.6f}, "
-                f"{n_std:+.1f} std from the original)"
-            )
+    # ── Render the comparisons ───────────────────────────────────────────────
+    # Imported here rather than at module scope: cross_model_control.py imports this
+    # module for its metric, and should not pick up matplotlib's Agg backend as a
+    # side effect of that import.
+    from plot_control_results import render  # noqa: E402
 
-    print("\n=== Orientations ===")
-    print(
-        f"  {'orientation':20s} {'mean_col_abs_dev':>18s} "
-        f"{'within_species_scale':>22s} {'norm_loss':>14s}"
-    )
-    for name in orientations:
-        print(
-            f"  {name:20s} "
-            f"{float(results[f'{name}_mean_col_abs_dev']):>18.6f} "
-            f"{float(results[f'{name}_within_species_scale']):>22.6f} "
-            f"{float(results[f'{name}_norm_loss']):>14.6f}"
-        )
+    render(results, PLOT_PATH)
+    print(f"Saved control summary figure to {os.path.normpath(PLOT_PATH)}")
 
 
 if __name__ == "__main__":

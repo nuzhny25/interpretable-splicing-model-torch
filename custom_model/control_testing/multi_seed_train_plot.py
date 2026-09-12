@@ -1,9 +1,9 @@
-"""Multi-seed cross-species AAD training + combined filter readout.
+"""Multi-seed cross-species orthogonality training + combined filter readout.
 
-Combines the real cross-species absolute-deviation trainer
-(``custom_model/custom_real_train_absolute_deviation.py``) with the filter
-plotter (``custom_model/plot_filters.py``): it trains a *fresh* ``PNASModel``
-from scratch on each of several random seeds (default 0,1,2,3 — seed 0 is the
+Combines the real cross-species orthogonality trainer
+(``custom_model/custom_real_train_orthogonality.py``) with the filter plotter
+(``custom_model/plot_filters.py``): it trains a *fresh* ``PNASModel`` from
+scratch on each of several random seeds (default 0,1,2,3 — seed 0 is the
 original run) and renders **one combined figure per readout** so all runs can be
 compared side by side:
 
@@ -13,19 +13,26 @@ compared side by side:
   * ``combined_filter_logos.png``    — each seed's *significant* filters as
     information-content (bits) sequence logos, one labelled row-block per seed.
 
-The training math (per-species SR scatter into alignment coordinates, NaN-aware
+The training math (all-species SR scatter into alignment coordinates, NaN-aware
 cross-species mean-absolute-deviation numerator normalized by the within-species
-dynamic range, L1 activation penalty, Gaussian SR smoothing) is identical to
-``custom_real_train_absolute_deviation.py``; only the seed set, epoch count, and
-the two logo thresholds are exposed as CLI args. Each seed's weights are also
-saved to a seed-suffixed checkpoint next to the figures, without touching the
-canonical ``weights/real_weights_aad.pt``.
+dynamic range, the pooled-20-mer orthogonality penalty on the 780 filter pairs,
+L1 activation penalty, Gaussian SR smoothing) is identical to
+``custom_real_train_orthogonality.py``; only the seed set, epoch count, and the
+two logo thresholds are exposed as CLI args. Each seed's weights are also saved
+to a seed-suffixed checkpoint next to the figures, with the per-epoch component
+curves in a matching ``_history_seed{S}.npz``, without touching the canonical
+``weights/real_weights_ortho.pt``.
 
-Run (defaults: seeds 0-3, 10000 epochs each — this trains four models, so it is
+Note that the orthogonality trainer uses every species of the alignment every
+epoch (``N_SAMPLE = 62``) rather than a 10-species sample, so a seed is
+substantially more expensive per epoch than the old absolute-deviation run —
+budget accordingly before raising ``--num-epochs`` or the seed count.
+
+Run (defaults: seeds 0-3, 1000 epochs each — this trains four models, so it is
 ~4x the single-run cost):
 
     python multi_seed_train_plot.py
-    python multi_seed_train_plot.py --seeds 0 1 2 3 --num-epochs 10000
+    python multi_seed_train_plot.py --seeds 0 1 2 3 --num-epochs 1000
 """
 
 import argparse
@@ -61,18 +68,42 @@ logger = logging.getLogger(__name__)
 
 _HERE = os.path.dirname(__file__)
 
-# ── Training hyperparameters (identical to custom_real_train_absolute_deviation.py
+# ── Training hyperparameters (identical to custom_real_train_orthogonality.py
 # so each seed's run is faithful) ─────────────────────────────────────────────
-MATRIX_PATH = os.path.join(
-    CUSTOM_DIR, "..", "data", "multiz100", "alignment_matrix.npy"
-)
-N_SAMPLE = 10  # number of species sampled per epoch
-MIN_SPECIES = 5  # a column counts toward the loss only if >= this many species present
+# GENE_DIR is the one line that changes when this is pointed at a different gene; the
+# orthogonality penalty follows it, since it is always measured on the same alignment
+# the model is being trained on.
+GENE_DIR = "multiz100"  # subdirectory of data/ holding alignment_matrix.npy (MALAT1)
+MATRIX_PATH = os.path.join(CUSTOM_DIR, "..", "data", GENE_DIR, "alignment_matrix.npy")
+# N_SAMPLE is the full species count of the MALAT1 alignment (62): using every species
+# every epoch keeps the all-species precompute path below, and makes the orthogonality
+# penalty the whole-alignment correlation matrix that filter_coactivation_covariance.py
+# reports rather than a per-epoch random subset of it.
+N_SAMPLE = 62  # number of species sampled per epoch
+MIN_SPECIES = 31  # a column counts toward the loss only if >= this many species present
 LR = 1e-2
-L1_LAMBDA = 0.002  # strength of L1 penalty on the softplus activations
+L1_LAMBDA = 0.02  # strength of L1 penalty on the softplus activations; 0 disables it
 SMOOTH_SIGMA = (
     1.5  # Gaussian smoothing of the SR profile along position (nt); 0 disables
 )
+
+# ── Orthogonality penalty ────────────────────────────────────────────────────
+# ORTHO_LAMBDA scales the mean |r| over the 780 filter pairs into the loss. Pooled mean
+# |r| sits around 0.3 at initialization and sd_loss lands near 0.2-0.3, so 0.5 starts the
+# two terms on comparable footing; retune by watching the logs.
+ORTHO_LAMBDA = 0.5
+# Sequence length each filter is scored on, matching --pool-length 20. Each such window
+# contributes POOL_LENGTH - 5 sliding 6-nt activations, summed into one score per filter.
+POOL_LENGTH = 20
+POOL_WINDOWS = POOL_LENGTH - 5  # width of the box sum along the activation track
+# Variance floor for the correlation denominator. A filter whose softplus has gone flat
+# has zero variance, where both the 0/0 correlation and sqrt'(0) = inf would poison the
+# gradient of every pair it appears in.
+ORTHO_EPS = 1e-12
+NUM_FILTERS = 20  # per bank; incl + skip -> 40 correlated channels
+
+HISTORY_EVERY = 10  # per-seed curve recording cadence (epochs), as in the trainer
+FLUSH_EVERY = 500  # rewrite a seed's npz this often so a killed run keeps its curves
 LOG_EVERY = 100  # console log cadence (epochs); larger than the trainer's 10 to keep
 # the combined multi-seed log readable
 
@@ -92,8 +123,8 @@ def main():
     parser.add_argument(
         "--num-epochs",
         type=int,
-        default=10000,
-        help="Training epochs per seed (default 10000, matching the trainer).",
+        default=1000,
+        help="Training epochs per seed (default 1000, matching the trainer).",
     )
     parser.add_argument(
         "--out-heatmaps",
@@ -116,7 +147,7 @@ def main():
     parser.add_argument(
         "--logo-activation-frac",
         type=float,
-        default=0.75,
+        default=0.5,
         help="Per filter, build its logo from every 6-mer whose softplus activation is at "
         "least this fraction of that filter's own peak activation (default 0.75).",
     )
@@ -178,6 +209,57 @@ def main():
             f"kernel size={gauss_kernel.shape[-1]}"
         )
 
+    # ── Orthogonality-penalty scaffolding, built once (seed-independent) ─────
+    # Box kernel of width POOL_WINDOWS, one copy per filter channel and applied with
+    # groups=, so a single grouped conv1d turns the 40 per-window activation tracks into
+    # the 40 pooled POOL_LENGTH-nt scores at every offset. Unlike the Gaussian above it
+    # is *not* sum-normalized: filter_coactivation_covariance.py sums the softplus over
+    # the windows inside a pooled sequence rather than averaging them. (Correlation is
+    # scale-free, so this only matters for reading the raw pooled magnitudes.)
+    box_kernel = torch.ones(2 * NUM_FILTERS, 1, POOL_WINDOWS, device=device)
+    # The 780 unique off-diagonal pairs of the 40x40 matrix — incl-incl, skip-skip and
+    # incl-skip alike, matching the full matrix the analysis script reports. Cross-bank
+    # pairs belong in the penalty: the two banks are subtracted from one another, so a
+    # correlated incl/skip pair is two filters cancelling instead of dividing the work.
+    triu = torch.triu_indices(2 * NUM_FILTERS, 2 * NUM_FILTERS, offset=1, device=device)
+    logger.info(
+        f"Orthogonality penalty: mean |r| over the {triu.shape[1]} pairs of "
+        f"{2 * NUM_FILTERS} filter channels, on every {POOL_LENGTH}-mer of the alignment "
+        f"({POOL_WINDOWS} windows summed per {POOL_LENGTH}-mer), lambda={ORTHO_LAMBDA:g}"
+    )
+
+    # ── Constant per-epoch structure when every species is used ──
+    # With N_SAMPLE == n_total the per-epoch randperm only permutes the rows of the
+    # full species set, and every term of the loss is invariant to row order. So the
+    # presence mask — and everything derived from it: the per-column species counts,
+    # the valid-column set, the per-row window counts, and the total number of
+    # (species, window) activations — is identical in every epoch *and in every seed*.
+    # Build it once here so the loop below stops re-scattering the mask N_SAMPLE rows
+    # at a time and re-reducing it over 15k columns. With N_SAMPLE < n_total the
+    # sampled set really does change every epoch, so the loop keeps its original
+    # per-epoch path.
+    all_species = N_SAMPLE == n_total
+    if all_species:
+        fixed_sel = list(range(n_total))
+        # Columns that receive a value for each species: a length-Lj sequence has
+        # Lj-5 six-nt windows, so the trailing 5 nucleotides start no window and are
+        # absent from the mask (same truncation the scatter below applies).
+        fixed_win_cols = [
+            species_cols[j][: species_oh[j].shape[-1] - 5] for j in fixed_sel
+        ]
+        fixed_mask = torch.zeros(N_SAMPLE, n_aligned, device=device)
+        for r, cols_r in enumerate(fixed_win_cols):
+            fixed_mask[r, cols_r] = 1.0
+        fixed_count = fixed_mask.sum(0)  # (n_aligned,) species present per column
+        fixed_valid = fixed_count >= MIN_SPECIES
+        fixed_rc = fixed_mask.sum(1)  # (N_SAMPLE,) windows per species
+        fixed_act_count = sum(c.numel() for c in fixed_win_cols)
+        logger.info(
+            f"All {n_total} species used every epoch — mask, column counts and valid "
+            f"columns precomputed once: {int(fixed_valid.sum().item())} valid columns, "
+            f"{fixed_act_count} (species, window) activations"
+        )
+
     # ── Seed loop: train one fresh model per seed (training logic kept inline) ──
     trained = []  # list of {"seed", "model", "final"} for the plotting passes below
     for seed in args.seeds:
@@ -191,36 +273,108 @@ def main():
         first10_sums = {
             "loss": 0.0,
             "sd_loss": 0.0,
+            "ortho": 0.0,
+            "mean_abs_r": 0.0,
             "l1": 0.0,
+            "raw_mean_col_sd": 0.0,
             "within_species_scale": 0.0,
         }
         n_first10 = 0
 
+        # Per-epoch history of every scalar the trainer's log line reports, recorded on
+        # the HISTORY_EVERY cadence and written to a seed-suffixed npz, so each seed's
+        # component curves can be plotted after the fact by plot/plot_training_curves.py
+        # instead of being inferred from the two endpoints in the metadata.
+        history = {
+            k: []
+            for k in (
+                "epoch",
+                "loss",
+                "sd_loss",
+                "ortho",
+                "mean_abs_r",
+                "l1",
+                "raw_mean_col_sd",
+                "within_species_scale",
+                "mean_abs_w",
+                "valid_cols",
+            )
+        }
+        history_path = os.path.join(_HERE, f"real_weights_aad_history_seed{seed}.npz")
+
         for epoch in range(1, args.num_epochs + 1):
             optimizer.zero_grad()
 
-            # Fresh random combination of N_SAMPLE species for this epoch.
-            sel = torch.randperm(n_total)[:N_SAMPLE]
+            # Fresh random combination of N_SAMPLE species for this epoch (the full
+            # set, in fixed order, when all_species — the draw would be a no-op
+            # permutation).
+            sel = (
+                fixed_sel
+                if all_species
+                else torch.randperm(n_total)[:N_SAMPLE].tolist()
+            )
 
             # Build the aligned (N_SAMPLE, n_aligned) matrix of SR values. We never
             # put literal NaN into the differentiable tensor; `mask` marks present
             # entries. Masked-out entries stay 0 and receive no gradient.
             values = torch.zeros(N_SAMPLE, n_aligned, device=device)
-            mask = torch.zeros(N_SAMPLE, n_aligned, device=device)
+            mask = (
+                fixed_mask
+                if all_species
+                else torch.zeros(N_SAMPLE, n_aligned, device=device)
+            )
 
             # Accumulate the summed softplus activations over all sampled species so
             # the L1 penalty is a mean over every (species, window) activation.
             act_sum = torch.zeros((), device=device)
-            act_count = 0
-            for r, j in enumerate(sel.tolist()):
-                # a_incl / a_skip are the raw (unsmoothed) summed softplus activations,
-                # both (1, Lj-5) and >= 0; used by the activation L1 penalty below.
-                sr_j, a_incl, a_skip = model.compute_sr_profile(
-                    species_oh[j], return_activations=True
-                )
-                sr_j = sr_j.squeeze(0)  # (Lj-5,)
+            act_count = fixed_act_count if all_species else 0
+
+            # Sufficient statistics for the orthogonality penalty's correlation matrix,
+            # accumulated over every species so the correlation is over the whole
+            # alignment (one observation per POOL_LENGTH-mer) rather than per species.
+            # float64: the pooled scores are sums of POOL_WINDOWS non-negative softplus
+            # values, so their mean dwarfs their spread and E[p^2] - E[p]^2 is a
+            # difference of large near-equal numbers — float32 would spend most of its
+            # precision in that cancellation. The accumulators are only 40 and 40x40
+            # wide, so double costs nothing here.
+            ortho_sum = torch.zeros(2 * NUM_FILTERS, dtype=torch.float64, device=device)
+            ortho_gram = torch.zeros(
+                2 * NUM_FILTERS, 2 * NUM_FILTERS, dtype=torch.float64, device=device
+            )
+            ortho_n = 0
+            for r, j in enumerate(sel):
+                # Per-filter softplus activations, kept un-summed so the orthogonality
+                # penalty below can correlate the 40 channels against each other;
+                # summing over the filter axis reproduces PNASModel.compute_sr_profile
+                # exactly (it returns only that sum, so the breakdown is not recoverable
+                # from it). a_incl / a_skip are the raw (unsmoothed) summed softplus
+                # activations, both (1, Lj-5) and >= 0; used by the L1 penalty below.
+                f_incl = F.softplus(model.conv_incl(species_oh[j]))  # (1,20,Lj-5), >= 0
+                f_skip = F.softplus(model.conv_skip(species_oh[j]))  # (1,20,Lj-5), >= 0
+                a_incl, a_skip = f_incl.sum(1), f_skip.sum(1)  # both (1, Lj-5)
+                sr_j = (a_incl - a_skip).squeeze(0)  # (Lj-5,)
                 act_sum = act_sum + (a_incl + a_skip).sum()
-                act_count += a_incl.numel()
+                if not all_species:
+                    act_count += a_incl.numel()
+
+                # Pooled POOL_LENGTH-mer scores for the orthogonality penalty, taken
+                # from the *raw* activations (the pooled mode of
+                # filter_coactivation_covariance.py has no position axis left to smooth,
+                # so it disables smoothing). Summing softplus over the POOL_WINDOWS
+                # windows inside a POOL_LENGTH-mer is a box sum along the activation
+                # track, so every POOL_LENGTH-mer of this species is scored by one
+                # grouped conv over the track we already have — the 20-mers themselves
+                # are never materialized or re-convolved.
+                act = torch.cat([f_incl, f_skip], dim=1)  # (1, 40, Lj-5)
+                if act.shape[-1] >= POOL_WINDOWS:  # else too short for one 20-mer
+                    # -> (40, Lj-19): one score per filter per POOL_LENGTH-mer offset.
+                    pooled = F.conv1d(act, box_kernel, groups=2 * NUM_FILTERS).squeeze(
+                        0
+                    )
+                    p = pooled.double()
+                    ortho_sum = ortho_sum + p.sum(1)
+                    ortho_gram = ortho_gram + p @ p.T
+                    ortho_n += pooled.shape[-1]
 
                 # Gaussian-smooth the dense SR track along position (gap-free, no NaN).
                 if SMOOTH_SIGMA:
@@ -236,21 +390,22 @@ def main():
                 # Place each window's value at the aligned column of its first nucleotide.
                 cols = species_cols[j][: sr_j.shape[0]]
                 values[r, cols] = sr_j
-                mask[r, cols] = 1.0
+                if not all_species:
+                    mask[r, cols] = 1.0
 
             # Numerator: NaN-aware cross-species mean absolute deviation per column
             # (about each column's cross-species mean), valid only where at least
             # MIN_SPECIES of the sampled species are present.
-            count = mask.sum(0)  # (n_aligned,)
+            count = fixed_count if all_species else mask.sum(0)  # (n_aligned,)
             col_mean = (values * mask).sum(0) / count.clamp(min=1)
             col_std = ((values - col_mean).abs() * mask).sum(0) / count.clamp(min=1)
-            valid = count >= MIN_SPECIES
+            valid = fixed_valid if all_species else count >= MIN_SPECIES
 
             # Denominator: within-species dynamic range = each row's mean absolute
             # deviation across positions (NaN-aware), averaged over rows. Dividing by
             # it makes the loss scale-free so the model can't cheat to a low abs-dev
             # by shrinking all activations toward a constant.
-            rc = mask.sum(1)  # (N_SAMPLE,)
+            rc = fixed_rc if all_species else mask.sum(1)  # (N_SAMPLE,)
             row_mean = (values * mask).sum(1) / rc.clamp(min=1)
             within_species_scale = (
                 ((values - row_mean.unsqueeze(1)).abs() * mask).sum(1) / rc.clamp(min=1)
@@ -260,10 +415,26 @@ def main():
                 (col_std[valid]) / within_species_scale
             ).mean()  # normalized average column abs-dev
 
+            # ── Orthogonality penalty: mean |r| over the 780 filter pairs ────
+            # The Gram accumulators above hold sum(p) and sum(p p^T) over every
+            # POOL_LENGTH-mer of the alignment, so the population (ddof=0) covariance of
+            # the 40 pooled filter scores follows in closed form. ddof does not matter
+            # here: correlation normalizes it away, which is why this matches the
+            # analysis script's np.cov (ddof=1) path exactly rather than approximately.
+            mean_p = ortho_sum / ortho_n
+            cov_p = ortho_gram / ortho_n - torch.outer(mean_p, mean_p)  # (40, 40)
+            std_p = cov_p.diagonal().clamp(min=ORTHO_EPS).sqrt()  # floor: dead filters
+            corr_p = cov_p / torch.outer(std_p, std_p)
+            # abs(), not r^2 or signed r: a signed mean is minimized by driving
+            # correlations negative rather than to zero, which is anti-correlation, not
+            # orthogonality.
+            mean_abs_r = corr_p[triu[0], triu[1]].abs().mean()
+            ortho_penalty = ORTHO_LAMBDA * mean_abs_r.to(sd_loss.dtype)
+
             # L1 penalty on the summed softplus activations (activity sparsity ->
             # peaked, data-driven SR profiles). a_incl/a_skip are already >= 0.
             l1_penalty = L1_LAMBDA * (act_sum / act_count)
-            loss = sd_loss + l1_penalty
+            loss = sd_loss + ortho_penalty + l1_penalty
             loss.backward()
             optimizer.step()
 
@@ -271,29 +442,69 @@ def main():
             if epoch <= 10:
                 first10_sums["loss"] += loss.item()
                 first10_sums["sd_loss"] += sd_loss.item()
+                first10_sums["ortho"] += ortho_penalty.item()
+                first10_sums["mean_abs_r"] += mean_abs_r.item()
                 first10_sums["l1"] += l1_penalty.item()
+                first10_sums["raw_mean_col_sd"] += col_std[valid].mean().item()
                 first10_sums["within_species_scale"] += within_species_scale.item()
                 n_first10 += 1
 
-            if epoch == 1 or epoch % LOG_EVERY == 0:
+            # Curves are recorded on the trainer's HISTORY_EVERY cadence; the console
+            # line is throttled to the coarser LOG_EVERY so the multi-seed log stays
+            # readable. mean_abs_w is computed once for whichever of the two fires.
+            log_now = epoch == 1 or epoch % LOG_EVERY == 0
+            record_now = epoch == 1 or epoch % HISTORY_EVERY == 0
+            if log_now or record_now:
                 mean_abs_w = (
                     model.conv_incl.weight.abs().mean().item()
                     + model.conv_skip.weight.abs().mean().item()
                 ) / 2
+
+            if log_now:
                 logger.info(
                     f"[seed {seed}] epoch {epoch:5d} | loss = {loss.item():.6f} "
                     f"| sd loss = {sd_loss.item():.6f} "
+                    f"| ortho = {ortho_penalty.item():.6f} "
+                    f"| mean|r| = {mean_abs_r.item():.4f} "
                     f"| l1 = {l1_penalty.item():.6f} "
+                    f"| raw mean col abs-dev = {col_std[valid].mean().item():.6f} "
                     f"| within-species scale = {within_species_scale.item():.6f} "
                     f"| valid cols = {int(valid.sum().item())} "
                     f"| mean|conv_w| = {mean_abs_w:.6f}"
                 )
 
+            if record_now:
+                # Same numbers as the trainer's log line, retained for
+                # plot/plot_training_curves.py.
+                history["epoch"].append(epoch)
+                history["loss"].append(loss.item())
+                history["sd_loss"].append(sd_loss.item())
+                history["ortho"].append(ortho_penalty.item())
+                history["mean_abs_r"].append(mean_abs_r.item())
+                # "l1" is the other term of the loss sum, still recorded under its own
+                # name: plot/plot_training_curves.py hardcodes this key, so dropping it
+                # would break the plotter on this run's npz.
+                history["l1"].append(l1_penalty.item())
+                history["raw_mean_col_sd"].append(col_std[valid].mean().item())
+                history["within_species_scale"].append(within_species_scale.item())
+                history["mean_abs_w"].append(mean_abs_w)
+                history["valid_cols"].append(int(valid.sum().item()))
+
+                # Periodic flush: a run killed part-way still leaves plottable curves
+                # for the seeds it got through, and for the seed it died in.
+                if epoch % FLUSH_EVERY == 0:
+                    np.savez(
+                        history_path, **{k: np.asarray(v) for k, v in history.items()}
+                    )
+
         # Final-epoch loss values (loop variables still in scope after the loop).
         final = {
             "loss": float(loss.item()),
             "sd_loss": float(sd_loss.item()),
+            "ortho": float(ortho_penalty.item()),
+            "mean_abs_r": float(mean_abs_r.item()),
             "l1": float(l1_penalty.item()),
+            "raw_mean_col_sd": float(col_std[valid].mean().item()),
             "within_species_scale": float(within_species_scale.item()),
         }
         # Average of each statistic over the first min(10, num_epochs) epochs.
@@ -309,7 +520,7 @@ def main():
         )
 
         # Save this seed's weights to a seed-suffixed checkpoint next to the figures
-        # (non-destructive: does not touch the canonical weights/real_weights_aad.pt).
+        # (non-destructive: does not touch the canonical weights/real_weights_ortho.pt).
         # Format matches train.py so plot_filters.py / load_partial_state_dict can reload.
         metadata = {
             "dataset": "real",
@@ -319,6 +530,8 @@ def main():
             "hparams": {
                 "num_epochs": args.num_epochs,
                 "lr": LR,
+                "ortho_lambda": ORTHO_LAMBDA,
+                "pool_length": POOL_LENGTH,
                 "l1_lambda": L1_LAMBDA,
                 "smooth_sigma": SMOOTH_SIGMA,
                 "seed": seed,
@@ -327,7 +540,21 @@ def main():
             },
             "final": final,
             "first_10_epochs_avg": first_10_epochs_avg,
+            # Where this seed's per-epoch component curves live, and at what cadence
+            # they were sampled, so a checkpoint points at its own training history.
+            "history_path": history_path,
+            "history_every": HISTORY_EVERY,
         }
+
+        # Final history write: the same arrays as the periodic flush plus this seed's
+        # hyperparameters, so plot_training_curves.py can stamp the figure from the npz
+        # alone without also loading the checkpoint.
+        np.savez(
+            history_path,
+            hparams_json=json.dumps(metadata["hparams"]),
+            **{k: np.asarray(v) for k, v in history.items()},
+        )
+
         weights_path = os.path.join(_HERE, f"real_weights_aad_seed{seed}.pt")
         torch.save(
             {
@@ -339,10 +566,13 @@ def main():
             weights_path,
         )
         trained[-1]["weights"] = weights_path
+        trained[-1]["history"] = history_path
         logger.info(
             f"[seed {seed}] done — final loss {final['loss']:.6f} "
-            f"(first-{n_first10}-epoch avg loss {first_10_epochs_avg['loss']:.6f}); "
-            f"saved weights to {os.path.normpath(weights_path)}"
+            f"(mean|r| {final['mean_abs_r']:.4f}; first-{n_first10}-epoch avg loss "
+            f"{first_10_epochs_avg['loss']:.6f}); saved weights to "
+            f"{os.path.normpath(weights_path)} and {len(history['epoch'])} recorded "
+            f"epochs to {os.path.normpath(history_path)}"
         )
 
     num_filters, channels, kernel_size = model.conv_incl.weight.shape
@@ -350,9 +580,14 @@ def main():
 
     # Shared run-metadata footer used on both figures.
     caption = (
-        f"real MALAT1 cross-species AAD loss | seeds {args.seeds} | "
-        f"epochs {args.num_epochs} | lr {LR}, l1λ {L1_LAMBDA}, σ {SMOOTH_SIGMA} | "
-        + "  ".join(f"s{t['seed']}: loss={t['final']['loss']:.3f}" for t in trained)
+        f"real MALAT1 cross-species AAD + orthogonality loss | seeds {args.seeds} | "
+        f"epochs {args.num_epochs} | lr {LR}, orthoλ {ORTHO_LAMBDA} "
+        f"(pool {POOL_LENGTH}), l1λ {L1_LAMBDA}, σ {SMOOTH_SIGMA} | "
+        + "  ".join(
+            f"s{t['seed']}: loss={t['final']['loss']:.3f}, "
+            f"mean|r|={t['final']['mean_abs_r']:.2f}"
+            for t in trained
+        )
     )
 
     # ── Combined heat-map figure: seeds stacked vertically, one block per seed ──
@@ -644,6 +879,8 @@ def main():
             "seeds": args.seeds,
             "num_epochs": args.num_epochs,
             "lr": LR,
+            "ortho_lambda": ORTHO_LAMBDA,
+            "pool_length": POOL_LENGTH,
             "l1_lambda": L1_LAMBDA,
             "smooth_sigma": SMOOTH_SIGMA,
             "n_sample": N_SAMPLE,
@@ -657,6 +894,7 @@ def main():
                 "final": t["final"],
                 "first_10_epochs_avg": t["first_10_epochs_avg"],
                 "weights": os.path.abspath(t["weights"]),
+                "history": os.path.abspath(t["history"]),
             }
             for t in trained
         ],

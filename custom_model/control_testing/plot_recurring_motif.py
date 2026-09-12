@@ -108,7 +108,7 @@ def main():
     parser.add_argument(
         "--n-motifs",
         type=int,
-        default=3,
+        default=10,
         help="Number of recurring-motif families (rows) to show, strongest first (default 3).",
     )
     parser.add_argument(
@@ -128,7 +128,7 @@ def main():
     parser.add_argument(
         "--logo-activation-frac",
         type=float,
-        default=0.75,
+        default=0.5,
         help="Per filter, build its logo from every 6-mer whose softplus activation is at "
         "least this fraction of that filter's own peak (default 0.75).",
     )
@@ -271,7 +271,8 @@ def main():
             else:
                 parts.append(f"s{s}:-")
         logger.info(
-            f"  [{fam['consensus']}] span {fam['span']}/{len(args.seeds)}  " + "  ".join(parts)
+            f"  [{fam['consensus']}] span {fam['span']}/{len(args.seeds)}  "
+            + "  ".join(parts)
         )
 
     if not families:
@@ -378,7 +379,13 @@ def main():
         f"its inclusion/skipping role need not."
     )
     fig.text(
-        0.5, 0.4 * footer_in / fig_h, caption, ha="center", va="center", fontsize=7, wrap=True
+        0.5,
+        0.4 * footer_in / fig_h,
+        caption,
+        ha="center",
+        va="center",
+        fontsize=7,
+        wrap=True,
     )
     fig.savefig(args.out, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -417,7 +424,9 @@ def main():
                             "bank": filters[fam["members"][s]]["bank"],
                             "idx": filters[fam["members"][s]]["idx"],
                             "peak": filters[fam["members"][s]]["peak"],
-                            "corr_to_anchor": float(CORR[fam["anchor"], fam["members"][s]]),
+                            "corr_to_anchor": float(
+                                CORR[fam["anchor"], fam["members"][s]]
+                            ),
                         }
                         if s in fam["members"]
                         else None
