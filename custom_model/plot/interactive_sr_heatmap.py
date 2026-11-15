@@ -57,7 +57,7 @@ sys.path.insert(0, ROOT)
 # module only wins if its directory comes first on sys.path.
 sys.path.insert(0, CUSTOM_DIR)
 from custom_model import PNASModel
-from custom_utils import str_to_vector
+from custom_utils import base_code_map, encode_sequence, resolve_alphabet
 from dataset_preparations.maf_processing import SPECIES
 
 MATRIX_PATH = os.path.join(ROOT, "data/multiz100/alignment_matrix.npy")
@@ -71,6 +71,12 @@ OUT_PATH = os.path.join(os.path.dirname(__file__), "sr_heatmap_ortho.html")
 # checkpoint's own hparams) before anything reads them.
 SMOOTH_SIGMA = 1.5
 SMOOTH_RADIUS = math.ceil(3 * SMOOTH_SIGMA)
+
+# The checkpoint's sequence alphabet, rebound in main() from the loaded weights the same
+# way SMOOTH_SIGMA is. "acgt" is the 4-channel default every checkpoint used before
+# pipeline/run_pipeline_ry.py; an R/Y checkpoint rebinds it to "ry" and species_profile
+# then encodes into the 2 channels its filters expect.
+ALPHABET_NAME = "acgt"
 
 
 def gaussian_kernel():
@@ -96,7 +102,9 @@ def species_profile(matrix, model, s_idx):
     cols = np.nonzero(is_nuc)[0]
     seq = "".join(row[is_nuc]).upper()
 
-    x_seq = torch.tensor(str_to_vector(seq), dtype=torch.float32).unsqueeze(0)
+    x_seq = torch.tensor(
+        encode_sequence(seq, ALPHABET_NAME), dtype=torch.float32
+    ).unsqueeze(0)
     with torch.no_grad():
         sr, a_incl, a_skip = model.compute_sr_profile(x_seq, return_activations=True)
     return (
@@ -109,7 +117,7 @@ def species_profile(matrix, model, s_idx):
 
 
 def main():
-    global SMOOTH_SIGMA, SMOOTH_RADIUS
+    global SMOOTH_SIGMA, SMOOTH_RADIUS, ALPHABET_NAME
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -163,8 +171,14 @@ def main():
     # filter count or kernel width has to be matched here or the load aborts on a
     # shape mismatch. K and NF then travel in the payload so the JS indexes the same
     # flattened weights the same way.
-    n_filt, _, ksize = state_dict["conv_incl.weight"].shape
-    model = PNASModel(num_filters=n_filt, kernel_size=ksize)
+    # The channel count is the input alphabet's width, and it has to reach the JS too:
+    # the hand-written convolution there strides over it and looks each base up in a
+    # code map, both of which are wrong at a hardcoded 4 for an R/Y checkpoint.
+    n_filt, n_chan, ksize = state_dict["conv_incl.weight"].shape
+    ALPHABET_NAME, alphabet = resolve_alphabet(
+        n_chan, (ckpt.get("metadata") or {}).get("hparams", {}).get("alphabet")
+    )
+    model = PNASModel(seq_in_channels=n_chan, num_filters=n_filt, kernel_size=ksize)
     model.load_state_dict(state_dict)
     model.eval()
 
@@ -210,6 +224,14 @@ def main():
         "columns": ["".join(matrix[:, j]) for j in range(n_species)],
         "kernel_size": int(ksize),
         "num_filters": int(n_filt),
+        # The alphabet, for the JS convolution: n_channels is the weight stride per
+        # filter and code_map sends each nucleotide to its channel. On an R/Y run the map
+        # is the many-to-one {A:0, G:0, C:1, Y:1}, which is where the purine/pyrimidine
+        # collapse happens in the browser. The displayed sequence stays A/C/G/T either
+        # way, so tooltips still name real bases.
+        "alphabet": alphabet,
+        "n_channels": int(n_chan),
+        "code_map": base_code_map(ALPHABET_NAME),
         "gene_label": gene_label,
         "run_name": args.run_name or "",
         "w_incl": model.conv_incl.weight.detach().numpy().tolist(),
@@ -228,8 +250,8 @@ def main():
     b_incl = np.array(payload["b_incl"], dtype=np.float32)
     w_skip = np.array(payload["w_skip"], dtype=np.float32)
     b_skip = np.array(payload["b_skip"], dtype=np.float32)
-    oh = str_to_vector(seq)  # (4, L)
-    win = sliding_window_view(oh, ksize, axis=1)  # (4, L-ksize+1, ksize)
+    oh = encode_sequence(seq, ALPHABET_NAME)  # (n_chan, L)
+    win = sliding_window_view(oh, ksize, axis=1)  # (n_chan, L-ksize+1, ksize)
     z_incl = np.einsum("fcp,ckp->fk", w_incl, win) + b_incl[:, None]
     z_skip = np.einsum("fcp,ckp->fk", w_skip, win) + b_skip[:, None]
     a_incl_manual = np.logaddexp(0, z_incl).sum(axis=0)
@@ -535,11 +557,14 @@ const NA = DATA.n_aligned, NS = DATA.species.length;
 // Filter-bank shape comes from the checkpoint, not from a literal: runs range over
 // K in {1,3,6,8} and NF in {5,10,20}, and every stride below is derived from them.
 const K = DATA.kernel_size, NF = DATA.num_filters;
-const FSTRIDE = 4 * K;
+// Input channels come from the checkpoint too: 4 for an A/C/G/T bank, 2 for a
+// purine/pyrimidine one, and it is the per-filter weight stride.
+const NCH = DATA.n_channels;
+const FSTRIDE = NCH * K;
 
 // Header and tab title come from the payload: with a heatmap per pipeline run, the
 // gene and architecture are the only way to tell 48 open tabs apart.
-const ARCH = `${NF}+${NF} filters, ${K} nt`;
+const ARCH = `${NF}+${NF} filters, ${K} nt, ${DATA.alphabet.split("").join("/")}`;
 const RUNTAG = DATA.run_name ? ` (${DATA.run_name})` : "";
 document.title = `${DATA.gene_label} SR-balance heatmap${RUNTAG}`;
 document.getElementById("pagetitle").textContent =
@@ -554,11 +579,11 @@ let mode = "diff";   // "diff" = Incl - Skip, "sum" = Incl + Skip
 document.documentElement.style.setProperty("--cellh", CELLH + "px");
 document.documentElement.style.setProperty("--labelw", "150px");
 
-// ---- weights, flattened for the hot loop: w[f*FSTRIDE + base*K + pos] ----
+// ---- weights, flattened for the hot loop: w[f*FSTRIDE + channel*K + pos] ----
 function flatten(w) {
   const a = new Float32Array(NF * FSTRIDE);
   for (let f = 0; f < NF; f++)
-    for (let c = 0; c < 4; c++)
+    for (let c = 0; c < NCH; c++)
       for (let p = 0; p < K; p++)
         a[f * FSTRIDE + c * K + p] = w[f][c][p];
   return a;
@@ -598,7 +623,10 @@ function smoothArray(a) {
 }
 
 // ---- per-species parsing: gap-free codes + coordinate maps ----
-const CODE = { A: 0, C: 1, G: 2, T: 3 };
+// Base -> input channel, from the payload rather than a literal: an A/C/G/T bank gets
+// {A:0,C:1,G:2,T:3}, a purine/pyrimidine one the many-to-one {A:0,G:0,C:1,T:1}. The
+// chars array below keeps the real bases for display; only codes[] is collapsed.
+const CODE = DATA.code_map;
 const SP = [];  // {cols, seq, codes, winOfCol, nWin, aIncl, aSkip}
 for (let s = 0; s < NS; s++) {
   const colStr = DATA.columns[s];
