@@ -1,0 +1,31 @@
+{
+  "queue": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/many_epoch_run.txt",
+  "shared_args": [
+    "--runs-dir",
+    "runs_many_epoch"
+  ],
+  "started_at": "2026-09-30T15:04:48",
+  "finished_at": "2026-09-30T16:24:33",
+  "n_queued": 1,
+  "n_succeeded": 1,
+  "runs": [
+    {
+      "index": 1,
+      "queue_line": 1,
+      "args": [
+        "--gene",
+        "malat1",
+        "--num-filters",
+        "20",
+        "--kernel-size",
+        "6",
+        "--epochs",
+        "10000"
+      ],
+      "returncode": 0,
+      "ok": true,
+      "elapsed_seconds": 4785.1,
+      "run_dir": null
+    }
+  ]
+}
