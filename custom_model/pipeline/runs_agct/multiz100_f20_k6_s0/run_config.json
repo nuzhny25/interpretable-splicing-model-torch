@@ -1,0 +1,60 @@
+{
+  "run_name": "multiz100_f20_k6_s0",
+  "generated_at": "2026-09-16T17:10:41",
+  "gene": {
+    "arg": "malat1",
+    "dir": "multiz100",
+    "label": "MALAT1"
+  },
+  "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+  "alphabet": {
+    "name": "agct",
+    "letters": "AGCT",
+    "n_channels": 4,
+    "mapping": {
+      "channel_order": "AGCT",
+      "swapped": [
+        "C",
+        "G"
+      ]
+    }
+  },
+  "architecture": {
+    "num_filters_per_bank": 20,
+    "kernel_size": 6,
+    "channels": 40,
+    "filter_pairs": 780
+  },
+  "hparams": {
+    "epochs": 500,
+    "lr": 0.01,
+    "ortho_lambda": 0.5,
+    "l1_lambda": 0.0,
+    "pool_length": 18,
+    "smooth_sigma": 1.5,
+    "seed": 0,
+    "n_sample": 62,
+    "min_species": 31,
+    "history_every": 10
+  },
+  "outputs": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/weights.pt",
+    "history": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/history.npz",
+    "filters_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/filters.png",
+    "filter_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/filter_logos.png",
+    "filter_logos_real_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/filter_logos_real.png",
+    "filters_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/real_filters.txt",
+    "plot_metadata_json": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/plot_metadata.json",
+    "training_curves_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/training_curves.png",
+    "covariance_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/covariance",
+    "sr_heatmap_html": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/sr_heatmap.html",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_agct/multiz100_f20_k6_s0/plots/model_logos.png"
+  },
+  "skipped_training": false,
+  "last_partial_run": {
+    "at": "2026-09-16T21:07:12",
+    "steps": [
+      "filters"
+    ]
+  }
+}
