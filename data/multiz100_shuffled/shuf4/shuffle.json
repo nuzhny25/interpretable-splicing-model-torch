@@ -1,0 +1,9 @@
+{
+  "source_matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy",
+  "shuffle_seed": 4,
+  "axis": "rows (aligned positions); species columns untouched",
+  "shape": [
+    15273,
+    62
+  ]
+}
