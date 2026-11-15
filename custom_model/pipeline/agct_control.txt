@@ -1,0 +1,22 @@
+# Batch queue for run_pipeline_agct.py — the C/G-swapped encoding control. Same format as
+# runs.txt (one run per line, written exactly as the flags would be typed). Run it with:
+#
+#     cd custom_model
+#     python pipeline/run_pipeline_agct.py --batch pipeline/agct_control.txt
+#
+# Each line mirrors an existing A/C/G/T run in pipeline/runs/ of the same name, and the
+# same --seed gives the identical initial weights, so the two pair seed-for-seed. Runs land
+# in pipeline/runs_agct/, never in runs/. Read the result with:
+#
+#     python pipeline/filter_substitution_classes.py --runs-dir pipeline/runs_agct \
+#         --out-dir pipeline/analysis/filter_substitution_classes_agct
+#
+# Scope: MALAT1 at 20+20 filters, kernel 6 — the architecture the substitution analysis
+# reported on — over the same six seeds. ~7 min per run.
+
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 0
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 1
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 2
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 3
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 4
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 5

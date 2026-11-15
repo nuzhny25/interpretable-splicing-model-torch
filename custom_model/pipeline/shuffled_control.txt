@@ -1,0 +1,40 @@
+# Batch queue for the row-shuffled MALAT1 negative control. Same format as runs.txt.
+#
+# The alignment's rows (aligned positions) are permuted once per shuffle seed by
+#
+#     python dataset_preparations/shuffle_alignment_rows.py --gene-dir multiz100 --seeds 0 1 2 3 4 5
+#
+# which writes data/multiz100_shuffled/shuf<k>/. Every column keeps its cross-species
+# composition and the species stay aligned to each other; only the column order is
+# destroyed. Shuffle seed 0 is the permutation control_testing/shuffle_train.py used.
+#
+# Design: the initial weights are fixed (--seed 0 on every line) and the shuffle seed is
+# the only thing that varies, so the spread across these six runs is permutation noise
+# alone. Every run starts from the same weights as the real multiz100_f20_k6_s0 run in
+# runs/. Training, loss and readouts are the unmodified run_pipeline.py at its defaults,
+# exactly as the real runs were trained.
+#
+# Run names carry the shuffle as _shuf<k> after the true torch seed. That falls outside
+# the <gene>_f<F>_k<K>_s<S> pattern the seed-vs-gene tools (filter_bank_distance.py,
+# filter_substitution_classes.py) parse, so they skip these runs rather than misread six
+# identical initializations as six seeds.
+#
+# Run it with (from custom_model/, passing --runs-dir alongside --batch so the batch
+# summary lands in the same tree; the relative --matrix paths resolve against
+# custom_model/):
+#
+#     python pipeline/run_pipeline.py --batch pipeline/shuffled_control.txt \
+#         --runs-dir pipeline/runs_shuffled
+
+--gene malat1_shuffled --matrix ../data/multiz100_shuffled/shuf0/alignment_matrix.npy \
+    --num-filters 20 --kernel-size 6 --seed 0 --run-name multiz100_shuffled_f20_k6_s0_shuf0
+--gene malat1_shuffled --matrix ../data/multiz100_shuffled/shuf1/alignment_matrix.npy \
+    --num-filters 20 --kernel-size 6 --seed 0 --run-name multiz100_shuffled_f20_k6_s0_shuf1
+--gene malat1_shuffled --matrix ../data/multiz100_shuffled/shuf2/alignment_matrix.npy \
+    --num-filters 20 --kernel-size 6 --seed 0 --run-name multiz100_shuffled_f20_k6_s0_shuf2
+--gene malat1_shuffled --matrix ../data/multiz100_shuffled/shuf3/alignment_matrix.npy \
+    --num-filters 20 --kernel-size 6 --seed 0 --run-name multiz100_shuffled_f20_k6_s0_shuf3
+--gene malat1_shuffled --matrix ../data/multiz100_shuffled/shuf4/alignment_matrix.npy \
+    --num-filters 20 --kernel-size 6 --seed 0 --run-name multiz100_shuffled_f20_k6_s0_shuf4
+--gene malat1_shuffled --matrix ../data/multiz100_shuffled/shuf5/alignment_matrix.npy \
+    --num-filters 20 --kernel-size 6 --seed 0 --run-name multiz100_shuffled_f20_k6_s0_shuf5

@@ -1,107 +1,176 @@
 # MALAT1
---gene malat1 --num-filters 20 --kernel-size 6 --seed 1
---gene malat1 --num-filters 10 --kernel-size 6 --seed 1
---gene malat1 --num-filters 5 --kernel-size 6 --seed 1
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 4
+--gene malat1 --num-filters 10 --kernel-size 6 --seed 4
+--gene malat1 --num-filters 5 --kernel-size 6 --seed 4
+--gene malat1 --num-filters 20 --kernel-size 8 --seed 4
+--gene malat1 --num-filters 10 --kernel-size 8 --seed 4
+--gene malat1 --num-filters 10 --kernel-size 3 --seed 4
+--gene malat1 --num-filters 5 --kernel-size 3 --seed 4
+--gene malat1 --num-filters 5 --kernel-size 1 --seed 4
 
---gene malat1 --num-filters 20 --kernel-size 8 --seed 1
---gene malat1 --num-filters 10 --kernel-size 8 --seed 1
-
---gene malat1 --num-filters 10 --kernel-size 3 --seed 1
---gene malat1 --num-filters 5 --kernel-size 3 --seed 1
-
---gene malat1 --num-filters 5 --kernel-size 1 --seed 1
-
---gene malat1 --num-filters 20 --kernel-size 6 --seed 2
---gene malat1 --num-filters 10 --kernel-size 6 --seed 2
---gene malat1 --num-filters 5 --kernel-size 6 --seed 2
-
---gene malat1 --num-filters 20 --kernel-size 8 --seed 2
---gene malat1 --num-filters 10 --kernel-size 8 --seed 2
-
---gene malat1 --num-filters 10 --kernel-size 3 --seed 2
---gene malat1 --num-filters 5 --kernel-size 3 --seed 2
-
---gene malat1 --num-filters 5 --kernel-size 1 --seed 2
-
---gene malat1 --num-filters 20 --kernel-size 6 --seed 3
---gene malat1 --num-filters 10 --kernel-size 6 --seed 3
---gene malat1 --num-filters 5 --kernel-size 6 --seed 3
-
---gene malat1 --num-filters 20 --kernel-size 8 --seed 3
---gene malat1 --num-filters 10 --kernel-size 8 --seed 3
-
---gene malat1 --num-filters 10 --kernel-size 3 --seed 3
---gene malat1 --num-filters 5 --kernel-size 3 --seed 3
-
---gene malat1 --num-filters 5 --kernel-size 1 --seed 3
+--gene malat1 --num-filters 20 --kernel-size 6 --seed 5
+--gene malat1 --num-filters 10 --kernel-size 6 --seed 5
+--gene malat1 --num-filters 5 --kernel-size 6 --seed 5
+--gene malat1 --num-filters 20 --kernel-size 8 --seed 5
+--gene malat1 --num-filters 10 --kernel-size 8 --seed 5
+--gene malat1 --num-filters 10 --kernel-size 3 --seed 5
+--gene malat1 --num-filters 5 --kernel-size 3 --seed 5
+--gene malat1 --num-filters 5 --kernel-size 1 --seed 5
 
 # NEAT1
 
-#--gene neat1 --num-filters 20 --kernel-size 6 --seed 1
-#--gene neat1 --num-filters 10 --kernel-size 6 --seed 1
-#--gene neat1 --num-filters 5 --kernel-size 6 --seed 1
+--gene neat1 --num-filters 20 --kernel-size 6 --seed 4
+--gene neat1 --num-filters 10 --kernel-size 6 --seed 4
+--gene neat1 --num-filters 5 --kernel-size 6 --seed 4
+--gene neat1 --num-filters 20 --kernel-size 8 --seed 4
+--gene neat1 --num-filters 10 --kernel-size 8 --seed 4
+--gene neat1 --num-filters 10 --kernel-size 3 --seed 4
+--gene neat1 --num-filters 5 --kernel-size 3 --seed 4
+--gene neat1 --num-filters 5 --kernel-size 1 --seed 4
 
-#--gene neat1 --num-filters 20 --kernel-size 8 --seed 1
-#--gene neat1 --num-filters 10 --kernel-size 8 --seed 1
 
-#--gene neat1 --num-filters 10 --kernel-size 3 --seed 1
-#--gene neat1 --num-filters 5 --kernel-size 3 --seed 1
+--gene neat1 --num-filters 20 --kernel-size 6 --seed 5
+--gene neat1 --num-filters 10 --kernel-size 6 --seed 5
+--gene neat1 --num-filters 5 --kernel-size 6 --seed 5
+--gene neat1 --num-filters 20 --kernel-size 8 --seed 5
+--gene neat1 --num-filters 10 --kernel-size 8 --seed 5
+--gene neat1 --num-filters 10 --kernel-size 3 --seed 5
+--gene neat1 --num-filters 5 --kernel-size 3 --seed 5
+--gene neat1 --num-filters 5 --kernel-size 1 --seed 5
 
-#--gene neat1 --num-filters 5 --kernel-size 1 --seed 1
 
 # HOTAIR
 
-#--gene hotair --num-filters 20 --kernel-size 6 --seed 1
-#--gene hotair --num-filters 10 --kernel-size 6 --seed 1
-#--gene hotair --num-filters 5 --kernel-size 6 --seed 1
+--gene hotair --num-filters 20 --kernel-size 6 --seed 4
+--gene hotair --num-filters 10 --kernel-size 6 --seed 4
+--gene hotair --num-filters 5 --kernel-size 6 --seed 4
+--gene hotair --num-filters 20 --kernel-size 8 --seed 4
+--gene hotair --num-filters 10 --kernel-size 8 --seed 4
+--gene hotair --num-filters 10 --kernel-size 3 --seed 4
+--gene hotair --num-filters 5 --kernel-size 3 --seed 4
+--gene hotair --num-filters 5 --kernel-size 1 --seed 4
 
-#--gene hotair --num-filters 20 --kernel-size 8 --seed 1
-#--gene hotair --num-filters 10 --kernel-size 8 --seed 1
+--gene hotair --num-filters 20 --kernel-size 6 --seed 5
+--gene hotair --num-filters 10 --kernel-size 6 --seed 5
+--gene hotair --num-filters 5 --kernel-size 6 --seed 5
+--gene hotair --num-filters 20 --kernel-size 8 --seed 5
+--gene hotair --num-filters 10 --kernel-size 8 --seed 5
+--gene hotair --num-filters 10 --kernel-size 3 --seed 5
+--gene hotair --num-filters 5 --kernel-size 3 --seed 5
+--gene hotair --num-filters 5 --kernel-size 1 --seed 5
 
-#--gene hotair --num-filters 10 --kernel-size 3 --seed 1
-#--gene hotair --num-filters 5 --kernel-size 3 --seed 1
-
-#--gene hotair --num-filters 5 --kernel-size 1 --seed 1
 
 # IL6
 
-#--gene il6 --num-filters 20 --kernel-size 6 --seed 1
-#--gene il6 --num-filters 10 --kernel-size 6 --seed 1
-#--gene il6 --num-filters 5 --kernel-size 6 --seed 1
+--gene il6 --num-filters 20 --kernel-size 6 --seed 4
+--gene il6 --num-filters 10 --kernel-size 6 --seed 4
+--gene il6 --num-filters 5 --kernel-size 6 --seed 4
+--gene il6 --num-filters 20 --kernel-size 8 --seed 4
+--gene il6 --num-filters 10 --kernel-size 8 --seed 4
+--gene il6 --num-filters 10 --kernel-size 3 --seed 4
+--gene il6 --num-filters 5 --kernel-size 3 --seed 4
+--gene il6 --num-filters 5 --kernel-size 1 --seed 4
 
-#--gene il6 --num-filters 20 --kernel-size 8 --seed 1
-#--gene il6 --num-filters 10 --kernel-size 8 --seed 1
+--gene il6 --num-filters 20 --kernel-size 6 --seed 5
+--gene il6 --num-filters 10 --kernel-size 6 --seed 5
+--gene il6 --num-filters 5 --kernel-size 6 --seed 5
+--gene il6 --num-filters 20 --kernel-size 8 --seed 5
+--gene il6 --num-filters 10 --kernel-size 8 --seed 5
+--gene il6 --num-filters 10 --kernel-size 3 --seed 5
+--gene il6 --num-filters 5 --kernel-size 3 --seed 5
+--gene il6 --num-filters 5 --kernel-size 1 --seed 5
 
-#--gene il6 --num-filters 10 --kernel-size 3 --seed 1
-#--gene il6 --num-filters 5 --kernel-size 3 --seed 1
-
-#--gene il6 --num-filters 5 --kernel-size 1 --seed 1
 
 # VEGFA
 
-#--gene vegfa --num-filters 20 --kernel-size 6 --seed 1
-#--gene vegfa --num-filters 10 --kernel-size 6 --seed 1
-#--gene vegfa --num-filters 5 --kernel-size 6 --seed 1
+--gene vegfa --num-filters 20 --kernel-size 6 --seed 1
+--gene vegfa --num-filters 10 --kernel-size 6 --seed 1
+--gene vegfa --num-filters 5 --kernel-size 6 --seed 1
+--gene vegfa --num-filters 20 --kernel-size 8 --seed 1
+--gene vegfa --num-filters 10 --kernel-size 8 --seed 1
+--gene vegfa --num-filters 10 --kernel-size 3 --seed 1
+--gene vegfa --num-filters 5 --kernel-size 3 --seed 1
+--gene vegfa --num-filters 5 --kernel-size 1 --seed 1
 
-#--gene vegfa --num-filters 20 --kernel-size 8 --seed 1
-#--gene vegfa --num-filters 10 --kernel-size 8 --seed 1
+--gene vegfa --num-filters 20 --kernel-size 6 --seed 2
+--gene vegfa --num-filters 10 --kernel-size 6 --seed 2
+--gene vegfa --num-filters 5 --kernel-size 6 --seed 2
+--gene vegfa --num-filters 20 --kernel-size 8 --seed 2
+--gene vegfa --num-filters 10 --kernel-size 8 --seed 2
+--gene vegfa --num-filters 10 --kernel-size 3 --seed 2
+--gene vegfa --num-filters 5 --kernel-size 3 --seed 2
+--gene vegfa --num-filters 5 --kernel-size 1 --seed 2
 
-#--gene vegfa --num-filters 10 --kernel-size 3 --seed 1
-#--gene vegfa --num-filters 5 --kernel-size 3 --seed 1
+--gene vegfa --num-filters 20 --kernel-size 6 --seed 3
+--gene vegfa --num-filters 10 --kernel-size 6 --seed 3
+--gene vegfa --num-filters 5 --kernel-size 6 --seed 3
+--gene vegfa --num-filters 20 --kernel-size 8 --seed 3
+--gene vegfa --num-filters 10 --kernel-size 8 --seed 3
+--gene vegfa --num-filters 10 --kernel-size 3 --seed 3
+--gene vegfa --num-filters 5 --kernel-size 3 --seed 3
+--gene vegfa --num-filters 5 --kernel-size 1 --seed 3
 
-#--gene vegfa --num-filters 5 --kernel-size 1 --seed 1
+--gene vegfa --num-filters 20 --kernel-size 6 --seed 4
+--gene vegfa --num-filters 10 --kernel-size 6 --seed 4
+--gene vegfa --num-filters 5 --kernel-size 6 --seed 4
+--gene vegfa --num-filters 20 --kernel-size 8 --seed 4
+--gene vegfa --num-filters 10 --kernel-size 8 --seed 4
+--gene vegfa --num-filters 10 --kernel-size 3 --seed 4
+--gene vegfa --num-filters 5 --kernel-size 3 --seed 4
+--gene vegfa --num-filters 5 --kernel-size 1 --seed 4
+
+--gene vegfa --num-filters 20 --kernel-size 6 --seed 5
+--gene vegfa --num-filters 10 --kernel-size 6 --seed 5
+--gene vegfa --num-filters 5 --kernel-size 6 --seed 5
+--gene vegfa --num-filters 20 --kernel-size 8 --seed 5
+--gene vegfa --num-filters 10 --kernel-size 8 --seed 5
+--gene vegfa --num-filters 10 --kernel-size 3 --seed 5
+--gene vegfa --num-filters 5 --kernel-size 3 --seed 5
+--gene vegfa --num-filters 5 --kernel-size 1 --seed 5
 
 # XIST
 
-#--gene xist --num-filters 20 --kernel-size 6 --seed 1
-#--gene xist --num-filters 10 --kernel-size 6 --seed 1
-#--gene xist --num-filters 5 --kernel-size 6 --seed 1
+--gene xist --num-filters 20 --kernel-size 6 --seed 1
+--gene xist --num-filters 10 --kernel-size 6 --seed 1
+--gene xist --num-filters 5 --kernel-size 6 --seed 1
+--gene xist --num-filters 20 --kernel-size 8 --seed 1
+--gene xist --num-filters 10 --kernel-size 8 --seed 1
+--gene xist --num-filters 10 --kernel-size 3 --seed 1
+--gene xist --num-filters 5 --kernel-size 3 --seed 1
+--gene xist --num-filters 5 --kernel-size 1 --seed 1
 
-#--gene xist --num-filters 20 --kernel-size 8 --seed 1
-#--gene xist --num-filters 10 --kernel-size 8 --seed 1
+--gene xist --num-filters 20 --kernel-size 6 --seed 2
+--gene xist --num-filters 10 --kernel-size 6 --seed 2
+--gene xist --num-filters 5 --kernel-size 6 --seed 2
+--gene xist --num-filters 20 --kernel-size 8 --seed 2
+--gene xist --num-filters 10 --kernel-size 8 --seed 2
+--gene xist --num-filters 10 --kernel-size 3 --seed 2
+--gene xist --num-filters 5 --kernel-size 3 --seed 2
+--gene xist --num-filters 5 --kernel-size 1 --seed 2
 
+--gene xist --num-filters 20 --kernel-size 6 --seed 3
+--gene xist --num-filters 10 --kernel-size 6 --seed 3
+--gene xist --num-filters 5 --kernel-size 6 --seed 3
+--gene xist --num-filters 20 --kernel-size 8 --seed 3
+--gene xist --num-filters 10 --kernel-size 8 --seed 3
+--gene xist --num-filters 10 --kernel-size 3 --seed 3
+--gene xist --num-filters 5 --kernel-size 3 --seed 3
+--gene xist --num-filters 5 --kernel-size 1 --seed 3
 
-#--gene xist --num-filters 10 --kernel-size 3 --seed 1
-#--gene xist --num-filters 5 --kernel-size 3 --seed 1
+--gene xist --num-filters 20 --kernel-size 6 --seed 4
+--gene xist --num-filters 10 --kernel-size 6 --seed 4
+--gene xist --num-filters 5 --kernel-size 6 --seed 4
+--gene xist --num-filters 20 --kernel-size 8 --seed 4
+--gene xist --num-filters 10 --kernel-size 8 --seed 4
+--gene xist --num-filters 10 --kernel-size 3 --seed 4
+--gene xist --num-filters 5 --kernel-size 3 --seed 4
+--gene xist --num-filters 5 --kernel-size 1 --seed 4
 
-#--gene xist --num-filters 5 --kernel-size 1 --seed 1
+--gene xist --num-filters 20 --kernel-size 6 --seed 5
+--gene xist --num-filters 10 --kernel-size 6 --seed 5
+--gene xist --num-filters 5 --kernel-size 6 --seed 5
+--gene xist --num-filters 20 --kernel-size 8 --seed 5
+--gene xist --num-filters 10 --kernel-size 8 --seed 5
+--gene xist --num-filters 10 --kernel-size 3 --seed 5
+--gene xist --num-filters 5 --kernel-size 3 --seed 5
+--gene xist --num-filters 5 --kernel-size 1 --seed 5

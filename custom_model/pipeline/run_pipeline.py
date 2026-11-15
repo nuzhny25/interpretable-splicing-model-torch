@@ -28,6 +28,7 @@ another:
         filters.png             per-filter weight heat maps
         filter_logos.png        information-content logos from the exhaustive k-mer scan
         filter_logos_real.png   the same logos weighted by real alignment windows
+        model_logos.png         whole-model logos: highest / lowest net-SR k-mers
         real_filters.txt        raw weights + consensus motifs + real-data fire counts
         plot_metadata.json      machine-readable sidecar for the two logo figures
         training_curves.png     loss components and their share of the total
@@ -109,6 +110,12 @@ GENES = {
     "il6": ("il6", "IL6"),
     "vegfa": ("vegfa", "VEGFA"),
     "xist": ("xist", "XIST"),
+    # Row-shuffled MALAT1 negative control, built by
+    # dataset_preparations/shuffle_alignment_rows.py into one shuf<seed>/ subdirectory per
+    # permutation, so it is always run with --matrix naming the permutation (see
+    # pipeline/shuffled_control.txt). A distinct label so no downstream tool can mistake
+    # it for the real MALAT1 alignment.
+    "malat1_shuffled": ("multiz100_shuffled", "MALAT1_shuffled"),
 }
 
 # The plotting stages, in the order they run. Names are the --only vocabulary.
@@ -625,7 +632,7 @@ def read_queue(path):
     return runs
 
 
-def run_batch(queue_path, shared_args, stop_on_error, dry_run):
+def run_batch(queue_path, shared_args, stop_on_error, dry_run, runs_root):
     """Execute every run in a queue file, one after another.
 
     Each run is a fresh subprocess of this same script rather than an in-process call,
@@ -635,7 +642,6 @@ def run_batch(queue_path, shared_args, stop_on_error, dry_run):
     flags so the line always wins, making them per-batch defaults.
     """
     runs = read_queue(queue_path)
-    runs_root = os.path.join(_HERE, "runs")
     logger.info(
         f"=== Batch: {len(runs)} run(s) from {queue_path} ==="
         + (
@@ -745,6 +751,14 @@ def main():
         % ", ".join(sorted(GENES)),
     )
     parser.add_argument(
+        "--matrix",
+        default=None,
+        help="Train and plot on this alignment_matrix-format .npy instead of the "
+        "--gene's own data/<dir>/alignment_matrix.npy. --gene still supplies the run "
+        "name and label, which is how the per-permutation shuffled controls share one "
+        "gene identity. In a --batch line a relative path resolves against custom_model/.",
+    )
+    parser.add_argument(
         "--num-filters",
         type=int,
         default=20,
@@ -818,6 +832,14 @@ def main():
         default=None,
         help="Name of the output directory under pipeline/runs/. Default: "
         "<gene>_f<num_filters>_k<kernel_size>_s<seed>.",
+    )
+    parser.add_argument(
+        "--runs-dir",
+        default=os.path.join(_HERE, "runs"),
+        help="Directory the run directories (and batch summaries) are written under. "
+        "Default: pipeline/runs/. Controls go in a tree of their own (e.g. "
+        "pipeline/runs_shuffled/) so the runs/-wide analyses never mix them in; with "
+        "--batch, pass it alongside --batch so the summary lands there too.",
     )
     parser.add_argument(
         "--skip-train",
@@ -906,7 +928,13 @@ def main():
             shared.append(token)
             i += 1
         raise SystemExit(
-            run_batch(queue_path, shared, args.stop_on_error, args.dry_run)
+            run_batch(
+                queue_path,
+                shared,
+                args.stop_on_error,
+                args.dry_run,
+                os.path.abspath(args.runs_dir),
+            )
         )
 
     if args.dry_run or args.stop_on_error:
@@ -929,7 +957,15 @@ def main():
             f"{args.kernel_size}; a pool must hold at least one full window."
         )
 
-    matrix_path, gene_dir, gene_label = resolve_gene(args.gene)
+    if args.matrix:
+        # The gene's identity without requiring its default matrix to exist: the shuffled
+        # control's data directory holds only per-permutation subdirectories.
+        gene_dir, gene_label = GENES.get(args.gene.lower(), (args.gene, args.gene))
+        matrix_path = os.path.abspath(args.matrix)
+        if not os.path.exists(matrix_path):
+            parser.error(f"--matrix file not found: {matrix_path}")
+    else:
+        matrix_path, gene_dir, gene_label = resolve_gene(args.gene)
 
     # Resolve the two alignment-dependent defaults here rather than inside train(), so
     # the run manifest below records the numbers actually used instead of a bare None.
@@ -955,7 +991,7 @@ def main():
         args.run_name
         or f"{gene_dir}_f{args.num_filters}_k{args.kernel_size}_s{args.seed}"
     )
-    run_dir = os.path.join(_HERE, "runs", run_name)
+    run_dir = os.path.join(os.path.abspath(args.runs_dir), run_name)
     plots_dir = os.path.join(run_dir, "plots")
     cov_dir = os.path.join(plots_dir, "covariance")
     os.makedirs(plots_dir, exist_ok=True)
@@ -1014,6 +1050,8 @@ def main():
                 os.path.join(plots_dir, "filter_logos.png"),
                 "--real-logos",
                 os.path.join(plots_dir, "filter_logos_real.png"),
+                "--model-logos",
+                os.path.join(plots_dir, "model_logos.png"),
                 "--meta-out",
                 os.path.join(plots_dir, "plot_metadata.json"),
                 "--logo-activation-frac",
@@ -1116,6 +1154,7 @@ def main():
             "filters_png": os.path.join(plots_dir, "filters.png"),
             "filter_logos_png": os.path.join(plots_dir, "filter_logos.png"),
             "filter_logos_real_png": os.path.join(plots_dir, "filter_logos_real.png"),
+            "model_logos_png": os.path.join(plots_dir, "model_logos.png"),
             "filters_txt": os.path.join(plots_dir, "real_filters.txt"),
             "plot_metadata_json": os.path.join(plots_dir, "plot_metadata.json"),
             "training_curves_png": os.path.join(plots_dir, "training_curves.png"),

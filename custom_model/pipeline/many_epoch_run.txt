@@ -1,0 +1,3 @@
+--gene malat1 --num-filters 20 --kernel-size 6 --epochs 10000 --seed 1
+--gene malat1 --num-filters 20 --kernel-size 6 --epochs 10000 --seed 2
+
