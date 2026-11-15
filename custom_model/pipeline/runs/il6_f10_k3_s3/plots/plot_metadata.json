@@ -1,0 +1,138 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/il6/alignment_matrix.npy",
+    "hparams": {
+      "gene": "il6",
+      "gene_label": "IL6",
+      "num_filters": 10,
+      "kernel_size": 3,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 9,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 3,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.38297489285469055,
+      "sd_loss": 0.3265593647956848,
+      "ortho": 0.05641552433371544,
+      "mean_abs_r": 0.11283104675377058,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.11724638193845749,
+      "within_species_scale": 0.3590354323387146
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.6035470545291901,
+      "sd_loss": 0.3951174318790436,
+      "ortho": 0.20842961966991425,
+      "mean_abs_r": 0.4168592393641114,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.16751013323664665,
+      "within_species_scale": 0.4446900933980942
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s3/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: IL6 | filters: 10+10 incl/skip, kernel: 3 nt | motif: no planted motif | epochs: 500 | final loss 0.3830 (sd 0.3266) | lr 0.01, ortho\u03bb 0.5, pool 9, \u03c3 1.5, seed 3",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s3/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s3/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s3/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s3/plots/filter_logos_real.png",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s3/plots/model_logos.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k3_s3/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "model_logo_frac": 0.5,
+    "generated_at": "2026-09-16T21:14:04"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/il6/alignment_matrix.npy",
+    "windows_per_bank": 255617,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 139900,
+        "1": 175816,
+        "2": 156876,
+        "3": 234443,
+        "4": 184097,
+        "5": 209507,
+        "6": 208383,
+        "7": 248611,
+        "8": 133618,
+        "9": 88672
+      },
+      "SKIP": {
+        "0": 147205,
+        "1": 118224,
+        "2": 170315,
+        "3": 174097,
+        "4": 186084,
+        "5": 255617,
+        "6": 201758,
+        "7": 245098,
+        "8": 195603,
+        "9": 255617
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "AAT",
+        "1": "TAT",
+        "2": "TTA",
+        "3": "AAT",
+        "4": "AAA",
+        "5": "AAT",
+        "6": "TAT",
+        "7": "AAA",
+        "8": "TAT",
+        "9": "CAC"
+      },
+      "SKIP": {
+        "0": "ACA",
+        "1": "TTC",
+        "2": "TGA",
+        "3": "ATA",
+        "4": "TAA",
+        "5": "AAA",
+        "6": "ATA",
+        "7": "ATA",
+        "8": "TAT",
+        "9": "AAA"
+      }
+    }
+  },
+  "model_logos": {
+    "frac": 0.5,
+    "n_kmers": 64,
+    "net_sr_median": 2.842271327972412,
+    "net_sr_min": -0.39075613021850586,
+    "net_sr_max": 6.698834419250488,
+    "panels": {
+      "INCL": {
+        "cutoff": 4.77055287361145,
+        "n_selected": 24,
+        "consensus": "CAC",
+        "best_kmer": "CAT",
+        "best_score": 6.698834419250488
+      },
+      "SKIP": {
+        "cutoff": 1.2257575988769531,
+        "n_selected": 24,
+        "consensus": "ACA",
+        "best_kmer": "ATA",
+        "best_score": -0.39075613021850586
+      }
+    }
+  }
+}

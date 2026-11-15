@@ -1,0 +1,290 @@
+Learned filter consensus motifs (argmax R/Y per kernel position), ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):
+  [INCL] (strongest first):
+    #16  RYRYRY  (|w_c|_1=8.257, |w|_1=8.973, bias=+0.8240)
+    # 9  YRYYYR  (|w_c|_1=3.819, |w|_1=4.047, bias=-0.3483)
+    #12  RYRRRR  (|w_c|_1=2.701, |w|_1=3.194, bias=+0.8065)
+    #11  RYYRRY  (|w_c|_1=2.585, |w|_1=2.683, bias=-1.4206)
+    #19  YYRRRY  (|w_c|_1=2.444, |w|_1=2.824, bias=-1.4261)
+    # 5  YYYRRR  (|w_c|_1=2.261, |w|_1=2.367, bias=-0.2626)
+    #15  RYYRYR  (|w_c|_1=2.222, |w|_1=2.400, bias=-1.1289)
+    # 1  YRYYRY  (|w_c|_1=1.865, |w|_1=2.193, bias=+0.6446)
+    #13  RYYRYY  (|w_c|_1=1.785, |w|_1=2.089, bias=-1.6763)
+    #10  YYYRRR  (|w_c|_1=1.701, |w|_1=2.099, bias=-0.5388)
+    # 3  RYRRYR  (|w_c|_1=1.525, |w|_1=1.720, bias=-1.7699)
+    #17  YRYYYR  (|w_c|_1=1.388, |w|_1=2.528, bias=+0.3320)
+    # 2  RRYYYR  (|w_c|_1=1.376, |w|_1=1.774, bias=-1.6379)
+    # 0  YYYRRR  (|w_c|_1=1.331, |w|_1=1.923, bias=-0.5079)
+    #14  YRRRRR  (|w_c|_1=1.279, |w|_1=1.772, bias=+0.4213)
+    # 7  YRRRYY  (|w_c|_1=1.262, |w|_1=1.995, bias=-0.1870)
+    # 4  YRYYYR  (|w_c|_1=1.033, |w|_1=1.671, bias=+0.2738)
+    # 6  YRYYYR  (|w_c|_1=0.961, |w|_1=2.468, bias=+0.2552)
+    # 8  YRYYYR  (|w_c|_1=0.779, |w|_1=1.889, bias=-0.0109)
+    #18  YRYYYR  (|w_c|_1=0.757, |w|_1=1.493, bias=+0.1863)
+  [SKIP] (strongest first):
+    # 6  YRRYYR  (|w_c|_1=5.662, |w|_1=6.135, bias=-0.6007)
+    # 3  YRRRYY  (|w_c|_1=4.988, |w|_1=4.988, bias=-2.3706)
+    # 4  RYRRRY  (|w_c|_1=3.404, |w|_1=3.526, bias=+0.2404)
+    # 8  YRRRRY  (|w_c|_1=2.531, |w|_1=2.908, bias=-0.0756)
+    #18  YRRYYR  (|w_c|_1=2.345, |w|_1=2.393, bias=-0.2893)
+    #10  RRYRYY  (|w_c|_1=2.307, |w|_1=2.344, bias=-0.8915)
+    #16  RRYYYR  (|w_c|_1=2.053, |w|_1=2.372, bias=-1.8687)
+    # 5  RRYYRR  (|w_c|_1=1.837, |w|_1=1.986, bias=-2.0683)
+    #19  YYYRRR  (|w_c|_1=1.795, |w|_1=1.806, bias=+0.0753)
+    #12  YRRYYR  (|w_c|_1=1.752, |w|_1=2.510, bias=-1.2375)
+    # 7  YYYYRR  (|w_c|_1=1.662, |w|_1=1.754, bias=-0.1843)
+    # 2  RYRYRY  (|w_c|_1=1.587, |w|_1=2.152, bias=+0.5049)
+    #15  RYRYRY  (|w_c|_1=1.577, |w|_1=1.915, bias=-0.7177)
+    #17  YRYRYR  (|w_c|_1=1.529, |w|_1=1.529, bias=-0.8858)
+    # 9  YRYRYR  (|w_c|_1=1.526, |w|_1=1.747, bias=-0.6781)
+    #14  YYYYRR  (|w_c|_1=1.473, |w|_1=2.157, bias=-0.2903)
+    #13  RRRYYY  (|w_c|_1=1.436, |w|_1=2.156, bias=-0.6640)
+    # 0  RRYYRR  (|w_c|_1=1.326, |w|_1=1.881, bias=-2.0130)
+    # 1  YRYYRY  (|w_c|_1=1.191, |w|_1=1.946, bias=-0.6647)
+    #11  YRYYYR  (|w_c|_1=1.014, |w|_1=1.649, bias=-0.0132)
+conv_incl/conv_skip weight shape: (20, 2, 6)  (num_filters, channels, kernel_size)
+
+=== INCL filter #0 (bias=-0.5079) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.3325  +0.0397  +0.1360  +0.1703  +0.0942  +0.0664  
+  Y     +0.0735  +0.1997  +0.2426  +0.1203  -0.1367  -0.3110  
+
+=== INCL filter #1 (bias=+0.6446) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2124  +0.2151  -0.1653  -0.3818  +0.3324  -0.1420  
+  Y     -0.0918  -0.0711  +0.0099  -0.0721  -0.3156  +0.1833  
+
+=== INCL filter #2 (bias=-1.6379) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0928  +0.1978  -0.2005  -0.0944  -0.0722  +0.0656  
+  Y     -0.2342  +0.1288  +0.1854  +0.1638  -0.0697  -0.2683  
+
+=== INCL filter #3 (bias=-1.7699) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.1760  -0.3455  +0.1192  -0.0181  -0.1662  +0.1232  
+  Y     -0.1416  +0.1827  +0.0417  -0.3068  +0.0613  +0.0376  
+
+=== INCL filter #4 (bias=+0.2738) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0586  +0.1876  -0.2212  -0.2725  +0.0418  -0.0158  
+  Y     +0.2039  +0.0696  -0.1332  +0.2331  +0.1909  -0.0430  
+
+=== INCL filter #5 (bias=-0.2626) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.3007  -0.0685  -0.1628  -0.0528  +0.1842  +0.3267  
+  Y     +0.4620  +0.1068  +0.0305  -0.0943  -0.2207  -0.3569  
+
+=== INCL filter #6 (bias=+0.2552) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.2237  +0.2498  -0.1813  -0.1550  +0.1033  +0.2754  
+  Y     +0.3238  +0.1681  -0.0731  +0.1677  +0.3613  +0.1854  
+
+=== INCL filter #7 (bias=-0.1870) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.3002  +0.2516  +0.2552  +0.2166  -0.2112  +0.0833  
+  Y     +0.0233  +0.2317  -0.1694  +0.0515  +0.0799  +0.1206  
+
+=== INCL filter #8 (bias=-0.0109) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.1811  +0.2702  -0.0124  +0.0492  -0.0484  -0.2305  
+  Y     -0.0992  +0.1760  +0.0901  +0.3104  +0.1357  -0.2859  
+
+=== INCL filter #9 (bias=-0.3483) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.7010  +0.1481  -0.6390  -0.4771  -0.4245  +0.0724  
+  Y     -0.1142  -0.7442  +0.1388  +0.3605  +0.1584  -0.0692  
+
+=== INCL filter #10 (bias=-0.5388) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.0502  -0.1344  -0.0012  +0.2037  +0.2200  +0.3560  
+  Y     +0.4317  +0.2200  +0.0141  +0.1991  -0.1097  -0.1593  
+
+=== INCL filter #11 (bias=-1.4206) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.0490  -0.1841  -0.1991  +0.2797  +0.3225  -0.1960  
+  Y     -0.3164  +0.2166  +0.1262  -0.1102  -0.2989  +0.3841  
+
+=== INCL filter #12 (bias=+0.8065) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.2000  -0.0811  +1.0212  +0.5277  +0.1557  +0.2011  
+  Y     +0.1061  +0.2644  -0.2595  +0.0355  -0.2366  +0.1047  
+
+=== INCL filter #13 (bias=-1.6763) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0919  -0.1619  -0.0948  +0.2926  -0.0376  -0.3009  
+  Y     -0.1867  +0.2142  +0.2364  -0.3200  -0.0291  -0.1231  
+
+=== INCL filter #14 (bias=+0.4213) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.1232  +0.2183  +0.1185  +0.2507  +0.3307  -0.0336  
+  Y     -0.0309  +0.0256  -0.1590  -0.2420  +0.1563  -0.0827  
+
+=== INCL filter #15 (bias=-1.1289) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.0632  -0.3044  -0.0582  +0.2213  -0.3310  +0.3560  
+  Y     -0.3360  +0.1098  +0.0096  -0.2973  +0.2875  +0.0262  
+
+=== INCL filter #16 (bias=+0.8240) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +1.2710  -0.9687  +0.8201  +0.2761  +0.3336  +0.0200  
+  Y     -0.6048  +2.6841  -1.2252  +0.4257  +0.0620  +0.2821  
+
+=== INCL filter #17 (bias=+0.3320) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0916  +0.3732  +0.1245  -0.3224  -0.2481  -0.0747  
+  Y     +0.2340  +0.2795  +0.2165  +0.1412  +0.1754  -0.2472  
+
+=== INCL filter #18 (bias=+0.1863) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2733  +0.2032  -0.1288  +0.0161  -0.0795  +0.0590  
+  Y     -0.1900  +0.1178  -0.0371  +0.2908  +0.0908  +0.0070  
+
+=== INCL filter #19 (bias=-1.4261) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.1573  -0.1061  +0.0273  +0.2362  +0.2476  -0.3522  
+  Y     +0.3621  -0.0788  -0.3756  -0.3966  +0.1114  +0.3729  
+
+=== SKIP filter #0 (bias=-2.0130) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.1552  +0.2114  -0.3152  -0.2069  -0.1150  +0.1650  
+  Y     -0.1747  +0.1624  +0.0435  +0.0585  -0.1161  -0.1574  
+
+=== SKIP filter #1 (bias=-0.6647) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2765  -0.0688  -0.0660  +0.0230  +0.2302  +0.0880  
+  Y     -0.1974  -0.2494  +0.0475  +0.2213  -0.1806  +0.2969  
+
+=== SKIP filter #2 (bias=+0.5049) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0214  -0.0701  +0.2406  -0.3642  -0.0925  -0.1868  
+  Y     -0.1808  +0.3508  -0.1657  -0.0348  -0.2891  -0.1551  
+
+=== SKIP filter #3 (bias=-2.3706) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.8874  +0.2362  +0.3032  +0.3194  -0.0181  -0.6260  
+  Y     +0.5782  -0.4494  -0.5726  -0.5344  +0.0197  +0.4430  
+
+=== SKIP filter #4 (bias=+0.2404) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.3278  -0.2958  +0.5730  +0.1687  +0.3276  -0.0919  
+  Y     -0.1535  +0.5434  -0.4572  +0.0612  -0.4600  +0.0659  
+
+=== SKIP filter #5 (bias=-2.0683) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.2963  +0.0847  -0.2529  -0.0186  +0.0446  +0.0686  
+  Y     -0.1801  +0.0745  +0.2383  +0.3607  -0.1315  -0.2351  
+
+=== SKIP filter #6 (bias=-0.6007) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.9155  +0.5365  +0.2175  -0.1751  -0.1117  -0.2366  
+  Y     +0.8602  -1.1265  -0.7572  +0.4926  +0.2782  -0.4276  
+
+=== SKIP filter #7 (bias=-0.1843) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.1677  -0.0614  +0.0459  -0.0351  +0.1157  +0.0320  
+  Y     +0.3302  +0.1600  +0.1138  +0.0111  -0.2893  -0.3918  
+
+=== SKIP filter #8 (bias=-0.0756) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.0924  +0.2377  -0.0667  -0.1219  +0.4688  -0.0265  
+  Y     +0.1239  -0.3843  -0.5797  -0.1719  -0.5724  +0.0615  
+
+=== SKIP filter #9 (bias=-0.6781) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0204  +0.0589  -0.2628  +0.2412  -0.2129  +0.2355  
+  Y     +0.1565  -0.2637  +0.0685  -0.0616  +0.0749  +0.0902  
+
+=== SKIP filter #10 (bias=-0.8915) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.2652  +0.0948  -0.2552  +0.0931  -0.3738  -0.3240  
+  Y     -0.2572  -0.2506  -0.0189  -0.2237  +0.0047  +0.1832  
+
+=== SKIP filter #11 (bias=-0.0132) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.1215  +0.1313  +0.1481  -0.2360  +0.0595  -0.0179  
+  Y     -0.0231  +0.0689  +0.2938  +0.3028  +0.2234  -0.0225  
+
+=== SKIP filter #12 (bias=-1.2375) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.4131  -0.1116  +0.2817  -0.0944  -0.1387  -0.1320  
+  Y     -0.1356  -0.2882  -0.1625  +0.2325  +0.1323  -0.3877  
+
+=== SKIP filter #13 (bias=-0.6640) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.2558  -0.2226  -0.0221  -0.0841  -0.1415  -0.2734  
+  Y     -0.3571  -0.2743  -0.1064  -0.0501  -0.0653  +0.3034  
+
+=== SKIP filter #14 (bias=-0.2903) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.4768  -0.0551  +0.0918  -0.1369  +0.4014  +0.1375  
+  Y     -0.0509  +0.2111  +0.1245  -0.1135  +0.0859  -0.2720  
+
+=== SKIP filter #15 (bias=-0.7177) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.1682  -0.1311  +0.1798  -0.0546  +0.1814  -0.0044  
+  Y     -0.2231  +0.0144  -0.2284  +0.2747  +0.1689  +0.2858  
+
+=== SKIP filter #16 (bias=-1.8687) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0414  +0.0080  -0.3510  -0.1981  -0.2622  +0.2045  
+  Y     -0.4538  -0.0363  +0.1251  +0.1906  -0.1593  -0.3415  
+
+=== SKIP filter #17 (bias=-0.8858) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.1879  +0.2915  -0.2371  +0.2103  -0.0294  +0.0742  
+  Y     +0.0060  -0.1563  +0.1670  -0.0360  +0.1270  -0.0063  
+
+=== SKIP filter #18 (bias=-0.2893) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2539  +0.0392  +0.3083  -0.3532  -0.2137  +0.2375  
+  Y     +0.1151  -0.2030  -0.3457  +0.2519  -0.0243  -0.0473  
+
+=== SKIP filter #19 (bias=+0.0753) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2226  -0.1997  -0.0071  +0.0692  +0.1237  +0.4287  
+  Y     +0.3208  -0.0053  +0.1592  -0.0093  -0.1907  -0.0696  
+
+
+Real-data activation counts on /Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100/alignment_matrix.npy
+(421,668 windows/bank across 62 species; a filter 'fires' at a window when its softplus >= 0.5 x its theoretical peak; consensus = argmax letter per position over those firing windows, i.e. the real-data logo's consensus), strongest-first:
+  [INCL]:
+    # 4  fires=421668  (100.00% of windows)  consensus=RRRRRR  peak=1.270
+    # 6  fires=421668  (100.00% of windows)  consensus=RRRRRR  peak=1.751
+    # 8  fires=421668  (100.00% of windows)  consensus=RRRRRR  peak=0.953
+    #18  fires=421668  (100.00% of windows)  consensus=RRRRRR  peak=1.039
+    #14  fires=393353  (93.29% of windows)  consensus=RRRRRR  peak=1.521
+    #17  fires=375451  (89.04% of windows)  consensus=RRRYYR  peak=1.618
+    # 7  fires=370112  (87.77% of windows)  consensus=YRRRYR  peak=1.144
+    # 0  fires=326018  (77.32% of windows)  consensus=YYRRRR  peak=0.877
+    #12  fires=297641  (70.59% of windows)  consensus=RRRRRR  peak=3.217
+    # 1  fires=296409  (70.29% of windows)  consensus=RRYYRY  peak=1.480
+    #10  fires=286883  (68.04% of windows)  consensus=YYRRRR  peak=1.246
+    # 2  fires=273522  (64.87% of windows)  consensus=RRYYRR  peak=0.313
+    # 3  fires=208966  (49.56% of windows)  consensus=RYRRYR  peak=0.281
+    # 5  fires=175779  (41.69% of windows)  consensus=YYYRRR  peak=1.167
+    #13  fires=151732  (35.98% of windows)  consensus=RYYRRY  peak=0.315
+    #16  fires=130449  (30.94% of windows)  consensus=RYRRRR  peak=6.642
+    #15  fires=121821  (28.89% of windows)  consensus=RYRRYR  peak=0.595
+    #19  fires=119866  (28.43% of windows)  consensus=YRRRRY  peak=0.572
+    #11  fires= 83703  (19.85% of windows)  consensus=RYYRRY  peak=0.625
+    # 9  fires= 54190  (12.85% of windows)  consensus=YRYYYR  peak=0.922
+  [SKIP]:
+    #11  fires=421668  (100.00% of windows)  consensus=RRRRRR  peak=1.239
+    # 1  fires=354176  (83.99% of windows)  consensus=RRRYRY  peak=0.628
+    # 2  fires=335680  (79.61% of windows)  consensus=RYRYRR  peak=1.196
+    #13  fires=300182  (71.19% of windows)  consensus=RRRRYY  peak=0.487
+    # 0  fires=289366  (68.62% of windows)  consensus=RRYYRR  peak=0.202
+    #19  fires=287011  (68.07% of windows)  consensus=YYYRRR  peak=1.442
+    #14  fires=286883  (68.04% of windows)  consensus=YYRRRR  peak=0.925
+    #15  fires=284308  (67.42% of windows)  consensus=RRRYRY  peak=0.905
+    # 9  fires=280376  (66.49% of windows)  consensus=RRYRYR  peak=0.775
+    #17  fires=280234  (66.46% of windows)  consensus=YRYRRR  peak=0.688
+    # 7  fires=272497  (64.62% of windows)  consensus=YYRRRR  peak=1.024
+    # 8  fires=177507  (42.10% of windows)  consensus=RRRRRR  peak=1.056
+    # 4  fires=169967  (40.31% of windows)  consensus=RYRRRR  peak=2.347
+    #12  fires=166825  (39.56% of windows)  consensus=YRRYYR  peak=0.321
+    #18  fires=147753  (35.04% of windows)  consensus=YRRYYR  peak=1.063
+    # 5  fires=142287  (33.74% of windows)  consensus=RRYYRR  peak=0.320
+    #16  fires=130877  (31.04% of windows)  consensus=RRYYRR  peak=0.209
+    #10  fires=114716  (27.21% of windows)  consensus=RRYRYY  peak=0.568
+    # 6  fires= 55932  (13.26% of windows)  consensus=YRRYYR  peak=1.741
+    # 3  fires= 24328  ( 5.77% of windows)  consensus=YRRRRY  peak=0.485

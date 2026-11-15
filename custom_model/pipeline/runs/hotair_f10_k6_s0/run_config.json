@@ -1,6 +1,6 @@
 {
   "run_name": "hotair_f10_k6_s0",
-  "generated_at": "2026-09-06T11:32:42",
+  "generated_at": "2026-09-13T23:59:20",
   "gene": {
     "arg": "hotair",
     "dir": "hotair",
@@ -35,13 +35,14 @@
     "plot_metadata_json": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/plot_metadata.json",
     "training_curves_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/training_curves.png",
     "covariance_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/covariance",
-    "sr_heatmap_html": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/sr_heatmap.html"
+    "sr_heatmap_html": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/sr_heatmap.html",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k6_s0/plots/model_logos.png"
   },
-  "skipped_training": false,
+  "skipped_training": true,
   "last_partial_run": {
-    "at": "2026-09-09T16:18:06",
+    "at": "2026-09-16T21:11:13",
     "steps": [
-      "sr-heatmap"
+      "filters"
     ]
   }
 }

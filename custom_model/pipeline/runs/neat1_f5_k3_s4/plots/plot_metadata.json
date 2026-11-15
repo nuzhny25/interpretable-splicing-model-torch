@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/neat1/alignment_matrix.npy",
+    "hparams": {
+      "gene": "neat1",
+      "gene_label": "NEAT1",
+      "num_filters": 5,
+      "kernel_size": 3,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 9,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 4,
+      "n_sample": 59,
+      "min_species": 30
+    },
+    "final": {
+      "loss": 0.4125053882598877,
+      "sd_loss": 0.36906638741493225,
+      "ortho": 0.04343900829553604,
+      "mean_abs_r": 0.086878013263827,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.12647290527820587,
+      "within_species_scale": 0.342683345079422
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.6009594142436981,
+      "sd_loss": 0.41991372108459474,
+      "ortho": 0.18104569166898726,
+      "mean_abs_r": 0.36209138578135436,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.08944871053099632,
+      "within_species_scale": 0.21811252683401108
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s4/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: NEAT1 | filters: 5+5 incl/skip, kernel: 3 nt | motif: no planted motif | epochs: 500 | final loss 0.4125 (sd 0.3691) | lr 0.01, ortho\u03bb 0.5, pool 9, \u03c3 1.5, seed 4",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s4/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s4/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s4/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s4/plots/filter_logos_real.png",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s4/plots/model_logos.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/neat1_f5_k3_s4/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "model_logo_frac": 0.5,
+    "generated_at": "2026-09-16T21:22:46"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/neat1/alignment_matrix.npy",
+    "windows_per_bank": 895274,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 657783,
+        "1": 684538,
+        "2": 549667,
+        "3": 858714,
+        "4": 805330
+      },
+      "SKIP": {
+        "0": 320232,
+        "1": 671841,
+        "2": 721865,
+        "3": 733562,
+        "4": 649264
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "GTG",
+        "1": "TTT",
+        "2": "TTG",
+        "3": "TTT",
+        "4": "TTT"
+      },
+      "SKIP": {
+        "0": "GGT",
+        "1": "AAT",
+        "2": "TTT",
+        "3": "TTG",
+        "4": "TAT"
+      }
+    }
+  },
+  "model_logos": {
+    "frac": 0.5,
+    "n_kmers": 64,
+    "net_sr_median": 1.0129034519195557,
+    "net_sr_min": -0.6271319389343262,
+    "net_sr_max": 2.863081455230713,
+    "panels": {
+      "INCL": {
+        "cutoff": 1.9379924535751343,
+        "n_selected": 11,
+        "consensus": "CTA",
+        "best_kmer": "CTA",
+        "best_score": 2.863081455230713
+      },
+      "SKIP": {
+        "cutoff": 0.19288575649261475,
+        "n_selected": 9,
+        "consensus": "AAT",
+        "best_kmer": "AAT",
+        "best_score": -0.6271319389343262
+      }
+    }
+  }
+}

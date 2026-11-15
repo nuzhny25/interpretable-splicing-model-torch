@@ -1,0 +1,100 @@
+Learned filter consensus motifs (argmax A/C/G/T per kernel position), ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):
+  [INCL] (strongest first):
+    # 4  T  (|w_c|_1=1.307, |w|_1=1.307, bias=-0.1464)
+    # 3  G  (|w_c|_1=1.006, |w|_1=1.090, bias=+0.0112)
+    # 1  A  (|w_c|_1=0.905, |w|_1=1.654, bias=+0.7211)
+    # 0  G  (|w_c|_1=0.715, |w|_1=1.016, bias=+0.0560)
+    # 2  T  (|w_c|_1=0.583, |w|_1=0.947, bias=-0.1512)
+  [SKIP] (strongest first):
+    # 2  C  (|w_c|_1=1.570, |w|_1=2.059, bias=-0.1000)
+    # 3  C  (|w_c|_1=1.345, |w|_1=1.702, bias=+0.6267)
+    # 0  T  (|w_c|_1=1.190, |w|_1=1.509, bias=+0.0680)
+    # 4  T  (|w_c|_1=1.147, |w|_1=1.639, bias=+0.3334)
+    # 1  T  (|w_c|_1=1.002, |w|_1=1.116, bias=-0.5436)
+conv_incl/conv_skip weight shape: (5, 4, 1)  (num_filters, channels, kernel_size)
+
+=== INCL filter #0 (bias=+0.0560) ===
+        pos1     
+  A     -0.2251  
+  C     -0.1502  
+  G     +0.2532  
+  T     -0.3871  
+
+=== INCL filter #1 (bias=+0.7211) ===
+        pos1     
+  A     +0.1846  
+  C     -0.6304  
+  G     -0.3741  
+  T     -0.4646  
+
+=== INCL filter #2 (bias=-0.1512) ===
+        pos1     
+  A     +0.1819  
+  C     -0.0575  
+  G     +0.3095  
+  T     +0.3977  
+
+=== INCL filter #3 (bias=+0.0112) ===
+        pos1     
+  A     -0.1494  
+  C     -0.0419  
+  G     +0.5111  
+  T     -0.3872  
+
+=== INCL filter #4 (bias=-0.1464) ===
+        pos1     
+  A     -0.0775  
+  C     -0.6650  
+  G     +0.1912  
+  T     +0.3730  
+
+=== SKIP filter #0 (bias=+0.0680) ===
+        pos1     
+  A     +0.1594  
+  C     -0.3568  
+  G     +0.4117  
+  T     +0.5812  
+
+=== SKIP filter #1 (bias=-0.5436) ===
+        pos1     
+  A     +0.1405  
+  C     +0.0568  
+  G     -0.6110  
+  T     +0.3076  
+
+=== SKIP filter #2 (bias=-0.1000) ===
+        pos1     
+  A     -0.9111  
+  C     +0.5482  
+  G     +0.2445  
+  T     +0.3551  
+
+=== SKIP filter #3 (bias=+0.6267) ===
+        pos1     
+  A     -0.7708  
+  C     +0.4692  
+  G     +0.1787  
+  T     +0.2833  
+
+=== SKIP filter #4 (bias=+0.3334) ===
+        pos1     
+  A     +0.3428  
+  C     +0.2458  
+  G     -0.5037  
+  T     +0.5464  
+
+
+Real-data activation counts on /Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/neat1/alignment_matrix.npy
+(895,392 windows/bank across 59 species; a filter 'fires' at a window when its softplus >= 0.5 x its theoretical peak; consensus = argmax letter per position over those firing windows, i.e. the real-data logo's consensus), strongest-first:
+  [INCL]:
+    # 0  fires=895392  (100.00% of windows)  consensus=T  peak=0.860
+    # 1  fires=895392  (100.00% of windows)  consensus=T  peak=1.245
+    # 2  fires=895392  (100.00% of windows)  consensus=T  peak=0.824
+    # 3  fires=895392  (100.00% of windows)  consensus=T  peak=0.988
+    # 4  fires=706498  (78.90% of windows)  consensus=T  peak=0.813
+  [SKIP]:
+    # 0  fires=895392  (100.00% of windows)  consensus=T  peak=1.070
+    # 2  fires=688286  (76.87% of windows)  consensus=T  peak=0.942
+    # 3  fires=688286  (76.87% of windows)  consensus=T  peak=1.384
+    # 1  fires=676554  (75.56% of windows)  consensus=T  peak=0.582
+    # 4  fires=676554  (75.56% of windows)  consensus=T  peak=1.227

@@ -1,0 +1,80 @@
+Learned filter consensus motifs (argmax R/Y per kernel position), ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):
+  [INCL] (strongest first):
+    # 2  YYRRRY  (|w_c|_1=1.377, |w|_1=1.999, bias=-0.1870)
+    # 4  RRYRYR  (|w_c|_1=0.985, |w|_1=1.618, bias=-0.2649)
+    # 0  YYYYYY  (|w_c|_1=0.950, |w|_1=1.886, bias=-0.1345)
+    # 1  RYYYRR  (|w_c|_1=0.942, |w|_1=1.870, bias=-0.0240)
+    # 3  RYYYYR  (|w_c|_1=0.863, |w|_1=1.637, bias=-0.1497)
+  [SKIP] (strongest first):
+    # 3  YRRRYY  (|w_c|_1=1.870, |w|_1=1.870, bias=+0.1325)
+    # 4  YRRRRR  (|w_c|_1=1.813, |w|_1=1.849, bias=+0.1923)
+    # 2  RYRYYR  (|w_c|_1=1.244, |w|_1=2.058, bias=-0.1345)
+    # 0  RRYYRR  (|w_c|_1=0.655, |w|_1=1.339, bias=+0.0887)
+    # 1  RRYYRR  (|w_c|_1=0.564, |w|_1=1.808, bias=+0.0748)
+conv_incl/conv_skip weight shape: (5, 2, 6)  (num_filters, channels, kernel_size)
+
+=== INCL filter #0 (bias=-0.1345) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.0773  -0.0285  +0.0276  +0.1377  +0.2380  -0.2251  
+  Y     -0.0651  +0.1528  +0.2782  +0.2920  +0.2938  +0.0703  
+
+=== INCL filter #1 (bias=-0.0240) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2674  +0.0105  -0.1957  -0.2817  +0.2495  +0.2127  
+  Y     -0.2713  +0.0704  -0.0332  -0.0346  -0.1249  +0.1181  
+
+=== INCL filter #2 (bias=-0.1870) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2127  +0.0634  +0.1042  +0.1667  +0.0692  -0.3249  
+  Y     -0.1459  +0.1862  +0.1018  -0.1857  -0.1280  +0.3102  
+
+=== INCL filter #3 (bias=-0.1497) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.2193  -0.1036  -0.0525  -0.2558  +0.0155  -0.1954  
+  Y     -0.2478  -0.0386  +0.0228  -0.1377  +0.1502  -0.1981  
+
+=== INCL filter #4 (bias=-0.2649) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.2436  +0.1770  -0.2688  -0.0959  -0.0131  +0.0207  
+  Y     +0.0867  +0.1340  +0.0426  -0.1169  +0.1626  -0.2557  
+
+=== SKIP filter #0 (bias=+0.0887) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     +0.0456  +0.2013  -0.1941  -0.1810  -0.0901  +0.0914  
+  Y     -0.0534  +0.1825  -0.0693  +0.0425  -0.1121  -0.0751  
+
+=== SKIP filter #1 (bias=+0.0748) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.2311  -0.1468  -0.0752  +0.0514  +0.1505  +0.1932  
+  Y     -0.2404  -0.1702  +0.0609  +0.1984  -0.0971  +0.1925  
+
+=== SKIP filter #2 (bias=-0.1345) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.0303  +0.0285  +0.2855  -0.3120  -0.2119  -0.0920  
+  Y     -0.1272  +0.2569  -0.2095  -0.0870  -0.1692  -0.2478  
+
+=== SKIP filter #3 (bias=+0.1325) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.1302  +0.2849  +0.1215  +0.0912  -0.0328  -0.1954  
+  Y     +0.0157  -0.2919  -0.1602  -0.1001  +0.2299  +0.2165  
+
+=== SKIP filter #4 (bias=+0.1923) ===
+        pos1     pos2     pos3     pos4     pos5     pos6     
+  R     -0.0892  +0.0261  +0.2205  +0.3231  +0.1471  +0.0435  
+  Y     +0.1542  -0.2068  +0.0176  -0.2606  -0.2317  -0.1282  
+
+
+Real-data activation counts on /Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/il6/alignment_matrix.npy
+(255,431 windows/bank across 62 species; a filter 'fires' at a window when its softplus >= 0.5 x its theoretical peak; consensus = argmax letter per position over those firing windows, i.e. the real-data logo's consensus), strongest-first:
+  [INCL]:
+    # 0  fires=255431  (100.00% of windows)  consensus=RRRRRR  peak=1.232
+    # 3  fires=255431  (100.00% of windows)  consensus=RRRRRR  peak=0.631
+    # 4  fires=246744  (96.60% of windows)  consensus=RRYRYR  peak=0.846
+    # 1  fires=246607  (96.55% of windows)  consensus=RYYYRR  peak=0.784
+    # 2  fires=188011  (73.61% of windows)  consensus=YYRRRY  peak=0.976
+  [SKIP]:
+    # 0  fires=255431  (100.00% of windows)  consensus=RRRRRR  peak=0.860
+    # 1  fires=255431  (100.00% of windows)  consensus=RRRRRR  peak=0.854
+    # 2  fires=209010  (81.83% of windows)  consensus=RYRYYR  peak=0.708
+    # 4  fires=165869  (64.94% of windows)  consensus=YRRRRR  peak=1.392
+    # 3  fires=163033  (63.83% of windows)  consensus=YRRRYY  peak=1.381

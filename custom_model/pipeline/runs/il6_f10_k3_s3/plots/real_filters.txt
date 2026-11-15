@@ -1,0 +1,190 @@
+Learned filter consensus motifs (argmax A/C/G/T per kernel position), ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):
+  [INCL] (strongest first):
+    # 9  CAC  (|w_c|_1=4.563, |w|_1=4.563, bias=+0.2729)
+    # 8  TGT  (|w_c|_1=3.366, |w|_1=3.727, bias=+0.3817)
+    # 0  CAT  (|w_c|_1=2.798, |w|_1=2.939, bias=+0.3624)
+    # 1  TGT  (|w_c|_1=2.498, |w|_1=2.832, bias=+0.4538)
+    # 2  TCG  (|w_c|_1=2.196, |w|_1=2.323, bias=-0.7160)
+    # 4  GGC  (|w_c|_1=2.051, |w|_1=2.351, bias=-0.7713)
+    # 5  AGC  (|w_c|_1=2.047, |w|_1=2.066, bias=-0.2302)
+    # 3  AGC  (|w_c|_1=1.939, |w|_1=1.939, bias=+0.4676)
+    # 6  GAT  (|w_c|_1=1.570, |w|_1=1.573, bias=-0.3855)
+    # 7  TCG  (|w_c|_1=1.352, |w|_1=1.518, bias=+0.0386)
+  [SKIP] (strongest first):
+    # 0  ACA  (|w_c|_1=2.394, |w|_1=2.480, bias=-0.1200)
+    # 1  CTG  (|w_c|_1=2.384, |w|_1=2.399, bias=-0.6921)
+    # 3  ACG  (|w_c|_1=2.025, |w|_1=2.212, bias=-0.1758)
+    # 4  GAC  (|w_c|_1=2.007, |w|_1=2.136, bias=-0.9106)
+    # 8  TAG  (|w_c|_1=1.887, |w|_1=1.942, bias=-1.1515)
+    # 6  ACA  (|w_c|_1=1.838, |w|_1=1.838, bias=-0.4433)
+    # 2  CGA  (|w_c|_1=1.761, |w|_1=2.151, bias=-1.2095)
+    # 7  ATT  (|w_c|_1=1.604, |w|_1=1.702, bias=-0.1642)
+    # 9  ATG  (|w_c|_1=1.305, |w|_1=1.826, bias=+0.0102)
+    # 5  ATG  (|w_c|_1=1.149, |w|_1=1.156, bias=-0.6539)
+conv_incl/conv_skip weight shape: (10, 4, 3)  (num_filters, channels, kernel_size)
+
+=== INCL filter #0 (bias=+0.3624) ===
+        pos1     pos2     pos3     
+  A     -0.0198  +0.6514  +0.0388  
+  C     +0.1981  -0.6081  +0.1415  
+  G     +0.0463  +0.1315  -0.4189  
+  T     +0.0321  -0.3414  +0.3115  
+
+=== INCL filter #1 (bias=+0.4538) ===
+        pos1     pos2     pos3     
+  A     -0.1294  +0.3631  -0.2716  
+  C     +0.0995  -0.2817  -0.1002  
+  G     +0.0666  +0.5513  -0.1406  
+  T     +0.3660  -0.3058  +0.1559  
+
+=== INCL filter #2 (bias=-0.7160) ===
+        pos1     pos2     pos3     
+  A     +0.0920  -0.2457  +0.1611  
+  C     +0.0465  +0.0004  -0.1441  
+  G     -0.3710  -0.0170  +0.2337  
+  T     +0.4217  -0.1359  -0.4535  
+
+=== INCL filter #3 (bias=+0.4676) ===
+        pos1     pos2     pos3     
+  A     +0.2113  -0.0606  -0.1038  
+  C     -0.1587  +0.0083  +0.2167  
+  G     -0.2712  +0.2511  -0.0197  
+  T     +0.1568  -0.2931  +0.1875  
+
+=== INCL filter #4 (bias=-0.7713) ===
+        pos1     pos2     pos3     
+  A     -0.1044  +0.1547  +0.0963  
+  C     +0.1938  -0.0538  +0.3351  
+  G     +0.2127  +0.2349  +0.0540  
+  T     -0.0440  -0.7662  +0.1013  
+
+=== INCL filter #5 (bias=-0.2302) ===
+        pos1     pos2     pos3     
+  A     +0.3860  -0.1022  -0.1707  
+  C     -0.0214  -0.0091  +0.1620  
+  G     -0.1212  +0.2171  -0.0728  
+  T     +0.3241  -0.3456  +0.1335  
+
+=== INCL filter #6 (bias=-0.3855) ===
+        pos1     pos2     pos3     
+  A     -0.0315  +0.4926  +0.0002  
+  C     -0.0016  -0.1464  -0.0427  
+  G     +0.0378  +0.1105  -0.3154  
+  T     -0.0063  -0.1979  +0.1898  
+
+=== INCL filter #7 (bias=+0.0386) ===
+        pos1     pos2     pos3     
+  A     -0.0784  -0.1467  +0.1799  
+  C     -0.1009  +0.0030  -0.0179  
+  G     -0.3430  -0.0045  +0.2228  
+  T     +0.1436  -0.0810  -0.1959  
+
+=== INCL filter #8 (bias=+0.3817) ===
+        pos1     pos2     pos3     
+  A     -0.2208  +0.3862  -0.0497  
+  C     +0.0865  -0.5026  +0.1855  
+  G     +0.0486  +0.6244  +0.1318  
+  T     +0.4404  -0.5252  +0.5250  
+
+=== INCL filter #9 (bias=+0.2729) ===
+        pos1     pos2     pos3     
+  A     -0.2671  +0.5910  -0.2290  
+  C     +0.8132  -1.0402  +0.4976  
+  G     -0.0915  +0.3233  -0.0549  
+  T     +0.3476  -0.1572  +0.1508  
+
+=== SKIP filter #0 (bias=-0.1200) ===
+        pos1     pos2     pos3     
+  A     +0.2729  -0.4294  +0.1321  
+  C     -0.3205  +0.4772  -0.3357  
+  G     +0.1483  -0.1808  +0.0732  
+  T     +0.0433  +0.0008  -0.0662  
+
+=== SKIP filter #1 (bias=-0.6921) ===
+        pos1     pos2     pos3     
+  A     -0.0973  -0.2939  -0.3023  
+  C     +0.2003  -0.0164  +0.1537  
+  G     -0.1394  +0.0656  +0.2638  
+  T     -0.0074  +0.4244  -0.4349  
+
+=== SKIP filter #2 (bias=-1.2095) ===
+        pos1     pos2     pos3     
+  A     -0.2210  -0.2133  +0.0088  
+  C     +0.0406  -0.1541  -0.2441  
+  G     -0.2431  +0.1758  -0.4461  
+  T     -0.0410  -0.3582  +0.0049  
+
+=== SKIP filter #3 (bias=-0.1758) ===
+        pos1     pos2     pos3     
+  A     +0.1155  -0.5978  +0.0797  
+  C     -0.2372  +0.3016  -0.1791  
+  G     +0.0657  -0.2777  +0.1877  
+  T     +0.0149  -0.0788  -0.0764  
+
+=== SKIP filter #4 (bias=-0.9106) ===
+        pos1     pos2     pos3     
+  A     -0.1045  +0.1600  +0.1150  
+  C     -0.2133  +0.0064  +0.3510  
+  G     +0.3160  +0.0582  -0.2325  
+  T     +0.2770  +0.1128  -0.1893  
+
+=== SKIP filter #5 (bias=-0.6539) ===
+        pos1     pos2     pos3     
+  A     +0.1523  -0.1887  +0.0035  
+  C     -0.0237  +0.0035  -0.1639  
+  G     -0.0172  -0.2347  +0.0198  
+  T     +0.1420  +0.1932  +0.0129  
+
+=== SKIP filter #6 (bias=-0.4433) ===
+        pos1     pos2     pos3     
+  A     +0.1134  -0.2776  +0.3099  
+  C     +0.0814  +0.2459  +0.0533  
+  G     -0.0754  -0.0998  -0.0849  
+  T     -0.2105  +0.2348  -0.0515  
+
+=== SKIP filter #7 (bias=-0.1642) ===
+        pos1     pos2     pos3     
+  A     +0.2036  -0.2606  +0.0488  
+  C     -0.0584  +0.0297  -0.1931  
+  G     -0.0671  -0.2716  +0.0497  
+  T     +0.1646  +0.3047  +0.0499  
+
+=== SKIP filter #8 (bias=-1.1515) ===
+        pos1     pos2     pos3     
+  A     -0.2687  +0.2716  -0.1422  
+  C     -0.1704  +0.1791  -0.0748  
+  G     -0.0274  -0.2183  +0.1393  
+  T     +0.0643  -0.2661  +0.1200  
+
+=== SKIP filter #9 (bias=+0.0102) ===
+        pos1     pos2     pos3     
+  A     +0.2243  -0.2739  +0.1502  
+  C     +0.0152  -0.0652  -0.0225  
+  G     +0.0297  -0.3337  +0.1821  
+  T     +0.2084  +0.1492  +0.1711  
+
+
+Real-data activation counts on /Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/il6/alignment_matrix.npy
+(255,617 windows/bank across 62 species; a filter 'fires' at a window when its softplus >= 0.5 x its theoretical peak; consensus = argmax letter per position over those firing windows, i.e. the real-data logo's consensus), strongest-first:
+  [INCL]:
+    # 7  fires=248611  (97.26% of windows)  consensus=AAA  peak=0.918
+    # 3  fires=234443  (91.72% of windows)  consensus=AAT  peak=1.422
+    # 5  fires=209507  (81.96% of windows)  consensus=AAT  peak=0.996
+    # 6  fires=208383  (81.52% of windows)  consensus=TAT  peak=0.874
+    # 4  fires=184097  (72.02% of windows)  consensus=AAA  peak=0.699
+    # 1  fires=175816  (68.78% of windows)  consensus=TAT  peak=1.724
+    # 2  fires=156876  (61.37% of windows)  consensus=TTA  peak=0.663
+    # 0  fires=139900  (54.73% of windows)  consensus=AAT  peak=1.721
+    # 8  fires=133618  (52.27% of windows)  consensus=TAT  peak=2.102
+    # 9  fires= 88672  (34.69% of windows)  consensus=CAC  peak=2.282
+  [SKIP]:
+    # 5  fires=255617  (100.00% of windows)  consensus=AAA  peak=0.559
+    # 9  fires=255617  (100.00% of windows)  consensus=AAA  peak=1.016
+    # 7  fires=245098  (95.88% of windows)  consensus=ATA  peak=0.909
+    # 6  fires=201758  (78.93% of windows)  consensus=ATA  peak=0.812
+    # 8  fires=195603  (76.52% of windows)  consensus=TAT  peak=0.411
+    # 4  fires=186084  (72.80% of windows)  consensus=TAA  peak=0.652
+    # 3  fires=174097  (68.11% of windows)  consensus=ATA  peak=0.931
+    # 2  fires=170315  (66.63% of windows)  consensus=TGA  peak=0.318
+    # 0  fires=147205  (57.59% of windows)  consensus=ACA  peak=1.145
+    # 1  fires=118224  (46.25% of windows)  consensus=TTC  peak=0.796

@@ -1,0 +1,138 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy",
+    "hparams": {
+      "gene": "hotair",
+      "gene_label": "HOTAIR",
+      "num_filters": 10,
+      "kernel_size": 3,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 9,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 5,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.3272368907928467,
+      "sd_loss": 0.26452961564064026,
+      "ortho": 0.06270726025104523,
+      "mean_abs_r": 0.12541451716278387,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.22182349860668182,
+      "within_species_scale": 0.8385582566261292
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.5186500549316406,
+      "sd_loss": 0.31436226665973666,
+      "ortho": 0.20428778380155563,
+      "mean_abs_r": 0.4085755654224098,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.15181864947080612,
+      "within_species_scale": 0.5073436066508293
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s5/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: HOTAIR | filters: 10+10 incl/skip, kernel: 3 nt | motif: no planted motif | epochs: 500 | final loss 0.3272 (sd 0.2645) | lr 0.01, ortho\u03bb 0.5, pool 9, \u03c3 1.5, seed 5",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s5/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s5/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s5/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s5/plots/filter_logos_real.png",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s5/plots/model_logos.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/hotair_f10_k3_s5/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "model_logo_frac": 0.5,
+    "generated_at": "2026-09-16T21:11:10"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy",
+    "windows_per_bank": 729392,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 534153,
+        "1": 680866,
+        "2": 521137,
+        "3": 533109,
+        "4": 511720,
+        "5": 554630,
+        "6": 525557,
+        "7": 554642,
+        "8": 506167,
+        "9": 605207
+      },
+      "SKIP": {
+        "0": 261362,
+        "1": 555569,
+        "2": 273707,
+        "3": 262868,
+        "4": 683343,
+        "5": 578581,
+        "6": 535779,
+        "7": 424359,
+        "8": 501492,
+        "9": 278962
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "CAG",
+        "1": "AGA",
+        "2": "GGG",
+        "3": "CGC",
+        "4": "GGG",
+        "5": "GGA",
+        "6": "GAG",
+        "7": "AAA",
+        "8": "CGT",
+        "9": "GGC"
+      },
+      "SKIP": {
+        "0": "CCA",
+        "1": "CCG",
+        "2": "TTT",
+        "3": "TTT",
+        "4": "GCG",
+        "5": "GCG",
+        "6": "CAA",
+        "7": "ACT",
+        "8": "CAG",
+        "9": "GTC"
+      }
+    }
+  },
+  "model_logos": {
+    "frac": 0.5,
+    "n_kmers": 64,
+    "net_sr_median": 0.5510573387145996,
+    "net_sr_min": -1.7629375457763672,
+    "net_sr_max": 2.87479829788208,
+    "panels": {
+      "INCL": {
+        "cutoff": 1.7129278182983398,
+        "n_selected": 32,
+        "consensus": "AAA",
+        "best_kmer": "GAT",
+        "best_score": 2.87479829788208
+      },
+      "SKIP": {
+        "cutoff": -0.6059401035308838,
+        "n_selected": 32,
+        "consensus": "ACA",
+        "best_kmer": "TCA",
+        "best_score": -1.7629375457763672
+      }
+    }
+  }
+}

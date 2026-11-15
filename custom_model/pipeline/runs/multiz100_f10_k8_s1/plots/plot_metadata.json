@@ -47,10 +47,12 @@
     "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/filters.png",
     "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/filter_logos.png",
     "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/filter_logos_real.png",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/model_logos.png",
     "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f10_k8_s1/plots/real_filters.txt",
     "logo_activation_frac": 0.5,
     "min_contribution_frac": 0.05,
-    "generated_at": "2026-09-12T13:30:42"
+    "model_logo_frac": 0.5,
+    "generated_at": "2026-09-16T21:17:37"
   },
   "gains": null,
   "real_activation": {
@@ -107,6 +109,29 @@
         "7": "AGGAAGCA",
         "8": "AAATAATA",
         "9": "GATGTTTT"
+      }
+    }
+  },
+  "model_logos": {
+    "frac": 0.5,
+    "n_kmers": 65536,
+    "net_sr_median": -1.4941601753234863,
+    "net_sr_min": -6.316319942474365,
+    "net_sr_max": 4.008835315704346,
+    "panels": {
+      "INCL": {
+        "cutoff": 1.2573375701904297,
+        "n_selected": 8567,
+        "consensus": "ACAATTAT",
+        "best_kmer": "ACAATTAT",
+        "best_score": 4.008835315704346
+      },
+      "SKIP": {
+        "cutoff": -3.905240058898926,
+        "n_selected": 10340,
+        "consensus": "CACTAGTA",
+        "best_kmer": "CACTAATA",
+        "best_score": -6.316319942474365
       }
     }
   }

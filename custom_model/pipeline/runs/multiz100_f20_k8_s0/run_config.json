@@ -35,13 +35,14 @@
     "plot_metadata_json": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k8_s0/plots/plot_metadata.json",
     "training_curves_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k8_s0/plots/training_curves.png",
     "covariance_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k8_s0/plots/covariance",
-    "sr_heatmap_html": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k8_s0/plots/sr_heatmap.html"
+    "sr_heatmap_html": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k8_s0/plots/sr_heatmap.html",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/multiz100_f20_k8_s0/plots/model_logos.png"
   },
   "skipped_training": false,
   "last_partial_run": {
-    "at": "2026-09-09T16:19:22",
+    "at": "2026-09-16T21:18:48",
     "steps": [
-      "sr-heatmap"
+      "filters"
     ]
   }
 }

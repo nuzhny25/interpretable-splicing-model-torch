@@ -1,0 +1,100 @@
+Learned filter consensus motifs (argmax A/C/G/T per kernel position), ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):
+  [INCL] (strongest first):
+    # 0  TTG  (|w_c|_1=2.797, |w|_1=2.797, bias=+0.1293)
+    # 4  CCA  (|w_c|_1=2.176, |w|_1=2.715, bias=+0.2011)
+    # 1  TGA  (|w_c|_1=2.137, |w|_1=2.381, bias=-0.2818)
+    # 3  AGC  (|w_c|_1=1.858, |w|_1=2.184, bias=+0.5511)
+    # 2  GCG  (|w_c|_1=1.503, |w|_1=1.894, bias=-0.1141)
+  [SKIP] (strongest first):
+    # 2  AGC  (|w_c|_1=3.760, |w|_1=3.942, bias=+0.0006)
+    # 0  GGT  (|w_c|_1=1.821, |w|_1=1.821, bias=+0.3459)
+    # 4  TAC  (|w_c|_1=1.806, |w|_1=1.978, bias=-0.9170)
+    # 3  TCG  (|w_c|_1=1.491, |w|_1=2.042, bias=-0.8078)
+    # 1  GGC  (|w_c|_1=1.087, |w|_1=1.345, bias=+0.2190)
+conv_incl/conv_skip weight shape: (5, 4, 3)  (num_filters, channels, kernel_size)
+
+=== INCL filter #0 (bias=+0.1293) ===
+        pos1     pos2     pos3     
+  A     -0.2441  -0.0887  -0.2361  
+  C     -0.1750  +0.1466  +0.1368  
+  G     +0.2505  -0.3349  +0.2179  
+  T     +0.4580  +0.4342  -0.0742  
+
+=== INCL filter #1 (bias=-0.2818) ===
+        pos1     pos2     pos3     
+  A     +0.0698  -0.3534  +0.1260  
+  C     +0.0286  +0.1728  -0.3533  
+  G     -0.1398  +0.3003  -0.3409  
+  T     +0.1959  -0.2069  -0.0934  
+
+=== INCL filter #2 (bias=-0.1141) ===
+        pos1     pos2     pos3     
+  A     +0.0251  -0.1485  +0.0732  
+  C     -0.3969  +0.3380  -0.0684  
+  G     +0.0979  -0.3110  +0.1568  
+  T     -0.0543  -0.1228  +0.1014  
+
+=== INCL filter #3 (bias=+0.5511) ===
+        pos1     pos2     pos3     
+  A     +0.4494  -0.3280  -0.0979  
+  C     -0.0541  +0.0321  +0.1065  
+  G     -0.0712  +0.3178  -0.2042  
+  T     -0.0332  +0.2949  -0.1946  
+
+=== INCL filter #4 (bias=+0.2011) ===
+        pos1     pos2     pos3     
+  A     -0.0930  -0.3285  -0.0687  
+  C     +0.4755  +0.3170  -0.1599  
+  G     +0.2439  +0.0724  -0.3257  
+  T     -0.3336  +0.0412  -0.2561  
+
+=== SKIP filter #0 (bias=+0.3459) ===
+        pos1     pos2     pos3     
+  A     -0.1821  +0.1220  -0.1442  
+  C     -0.0489  -0.1424  +0.0638  
+  G     +0.1695  +0.3332  -0.0476  
+  T     +0.0936  -0.3196  +0.1543  
+
+=== SKIP filter #1 (bias=+0.2190) ===
+        pos1     pos2     pos3     
+  A     -0.1698  +0.0215  -0.0867  
+  C     -0.0943  -0.0808  +0.0083  
+  G     +0.1979  +0.4600  -0.0903  
+  T     -0.0660  +0.0277  -0.0416  
+
+=== SKIP filter #2 (bias=+0.0006) ===
+        pos1     pos2     pos3     
+  A     +0.3325  -0.0914  -0.1760  
+  C     +0.0521  -0.4458  +0.0793  
+  G     -0.5499  +0.5689  -0.5734  
+  T     -0.3746  -0.6606  +0.0379  
+
+=== SKIP filter #3 (bias=-0.8078) ===
+        pos1     pos2     pos3     
+  A     +0.0088  -0.1776  -0.0939  
+  C     -0.1368  -0.0123  -0.0859  
+  G     -0.2984  -0.2725  +0.2970  
+  T     +0.1599  -0.2135  -0.2857  
+
+=== SKIP filter #4 (bias=-0.9170) ===
+        pos1     pos2     pos3     
+  A     -0.1371  +0.2621  +0.1256  
+  C     -0.0554  -0.0467  +0.3433  
+  G     +0.1825  +0.1191  -0.1055  
+  T     +0.2989  +0.0862  -0.2158  
+
+
+Real-data activation counts on /Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy
+(729,392 windows/bank across 62 species; a filter 'fires' at a window when its softplus >= 0.5 x its theoretical peak; consensus = argmax letter per position over those firing windows, i.e. the real-data logo's consensus), strongest-first:
+  [INCL]:
+    # 3  fires=626834  (85.94% of windows)  consensus=AGC  peak=1.640
+    # 2  fires=612664  (84.00% of windows)  consensus=GCG  peak=0.961
+    # 4  fires=499964  (68.55% of windows)  consensus=CCC  peak=1.259
+    # 1  fires=482699  (66.18% of windows)  consensus=TGA  peak=0.878
+    # 0  fires=431645  (59.18% of windows)  consensus=TTC  peak=1.494
+  [SKIP]:
+    # 1  fires=729392  (100.00% of windows)  consensus=GGG  peak=1.231
+    # 0  fires=686906  (94.18% of windows)  consensus=GGG  peak=1.315
+    # 4  fires=531187  (72.83% of windows)  consensus=GGC  peak=0.687
+    # 3  fires=459853  (63.05% of windows)  consensus=TCG  peak=0.528
+    # 2  fires=213601  (29.28% of windows)  consensus=AGC  peak=1.300

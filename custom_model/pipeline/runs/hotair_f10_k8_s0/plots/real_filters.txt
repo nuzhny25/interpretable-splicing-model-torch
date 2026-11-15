@@ -1,4 +1,4 @@
-Learned filter consensus motifs (argmax nucleotide per kernel position), ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):
+Learned filter consensus motifs (argmax A/C/G/T per kernel position), ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):
   [INCL] (strongest first):
     # 2  CAGGTTAC  (|w_c|_1=6.471, |w|_1=7.230, bias=+0.0012)
     # 5  CCAGCCCC  (|w_c|_1=5.939, |w|_1=6.132, bias=-0.0899)
@@ -165,7 +165,7 @@ conv_incl/conv_skip weight shape: (10, 4, 8)  (num_filters, channels, kernel_siz
 
 
 Real-data activation counts on /Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/hotair/alignment_matrix.npy
-(729,082 windows/bank across 62 species; a filter 'fires' at a window when its softplus >= 0.5 x its theoretical peak; consensus = argmax base per position over those firing windows, i.e. the real-data logo's consensus), strongest-first:
+(729,082 windows/bank across 62 species; a filter 'fires' at a window when its softplus >= 0.5 x its theoretical peak; consensus = argmax letter per position over those firing windows, i.e. the real-data logo's consensus), strongest-first:
   [INCL]:
     # 0  fires=303923  (41.69% of windows)  consensus=GCAACAAA  peak=2.852
     # 8  fires=144676  (19.84% of windows)  consensus=CCAACCAA  peak=1.502

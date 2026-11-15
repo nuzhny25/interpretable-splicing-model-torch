@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/vegfa/alignment_matrix.npy",
+    "hparams": {
+      "gene": "vegfa",
+      "gene_label": "VEGFA",
+      "num_filters": 5,
+      "kernel_size": 3,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 9,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 4,
+      "n_sample": 79,
+      "min_species": 40
+    },
+    "final": {
+      "loss": 0.3757787048816681,
+      "sd_loss": 0.31865307688713074,
+      "ortho": 0.05712563544511795,
+      "mean_abs_r": 0.11425127236039244,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.17519903182983398,
+      "within_species_scale": 0.5498112440109253
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.538860422372818,
+      "sd_loss": 0.35478725135326383,
+      "ortho": 0.18407317548990249,
+      "mean_abs_r": 0.36814634851611727,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.08701222762465477,
+      "within_species_scale": 0.24995831102132798
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s4/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: VEGFA | filters: 5+5 incl/skip, kernel: 3 nt | motif: no planted motif | epochs: 500 | final loss 0.3758 (sd 0.3187) | lr 0.01, ortho\u03bb 0.5, pool 9, \u03c3 1.5, seed 4",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s4/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s4/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s4/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s4/plots/filter_logos_real.png",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s4/plots/model_logos.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k3_s4/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "model_logo_frac": 0.5,
+    "generated_at": "2026-09-16T21:25:57"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/vegfa/alignment_matrix.npy",
+    "windows_per_bank": 993344,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 589383,
+        "1": 662517,
+        "2": 528818,
+        "3": 590763,
+        "4": 930583
+      },
+      "SKIP": {
+        "0": 424540,
+        "1": 659070,
+        "2": 787195,
+        "3": 791175,
+        "4": 761204
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TTT",
+        "1": "CCC",
+        "2": "CCC",
+        "3": "TGT",
+        "4": "GGC"
+      },
+      "SKIP": {
+        "0": "GGG",
+        "1": "CCC",
+        "2": "CCC",
+        "3": "GCC",
+        "4": "CGG"
+      }
+    }
+  },
+  "model_logos": {
+    "frac": 0.5,
+    "n_kmers": 64,
+    "net_sr_median": 0.4796028137207031,
+    "net_sr_min": -0.8949239253997803,
+    "net_sr_max": 2.1171181201934814,
+    "panels": {
+      "INCL": {
+        "cutoff": 1.2983604669570923,
+        "n_selected": 13,
+        "consensus": "TCC",
+        "best_kmer": "TCT",
+        "best_score": 2.1171181201934814
+      },
+      "SKIP": {
+        "cutoff": -0.20766055583953857,
+        "n_selected": 15,
+        "consensus": "GAA",
+        "best_kmer": "GAG",
+        "best_score": -0.8949239253997803
+      }
+    }
+  }
+}

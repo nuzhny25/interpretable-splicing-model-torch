@@ -1,0 +1,48 @@
+{
+  "run_name": "il6_f10_k8_s4",
+  "generated_at": "2026-09-13T00:13:42",
+  "gene": {
+    "arg": "il6",
+    "dir": "il6",
+    "label": "IL6"
+  },
+  "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/il6/alignment_matrix.npy",
+  "architecture": {
+    "num_filters_per_bank": 10,
+    "kernel_size": 8,
+    "channels": 20,
+    "filter_pairs": 190
+  },
+  "hparams": {
+    "epochs": 500,
+    "lr": 0.01,
+    "ortho_lambda": 0.5,
+    "l1_lambda": 0.0,
+    "pool_length": 24,
+    "smooth_sigma": 1.5,
+    "seed": 4,
+    "n_sample": 62,
+    "min_species": 31,
+    "history_every": 10
+  },
+  "outputs": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/weights.pt",
+    "history": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/history.npz",
+    "filters_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/filters.png",
+    "filter_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/filter_logos.png",
+    "filter_logos_real_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/filter_logos_real.png",
+    "filters_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/real_filters.txt",
+    "plot_metadata_json": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/plot_metadata.json",
+    "training_curves_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/training_curves.png",
+    "covariance_dir": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/covariance",
+    "sr_heatmap_html": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/sr_heatmap.html",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/il6_f10_k8_s4/plots/model_logos.png"
+  },
+  "skipped_training": false,
+  "last_partial_run": {
+    "at": "2026-09-16T21:15:00",
+    "steps": [
+      "filters"
+    ]
+  }
+}

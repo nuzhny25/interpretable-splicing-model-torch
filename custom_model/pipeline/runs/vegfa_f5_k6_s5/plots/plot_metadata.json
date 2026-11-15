@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/vegfa/alignment_matrix.npy",
+    "hparams": {
+      "gene": "vegfa",
+      "gene_label": "VEGFA",
+      "num_filters": 5,
+      "kernel_size": 6,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 18,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 5,
+      "n_sample": 79,
+      "min_species": 40
+    },
+    "final": {
+      "loss": 0.35103094577789307,
+      "sd_loss": 0.31195932626724243,
+      "ortho": 0.03907161206007004,
+      "mean_abs_r": 0.07814322310270257,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.18503153324127197,
+      "within_species_scale": 0.5931271314620972
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.5615156769752503,
+      "sd_loss": 0.3648367255926132,
+      "ortho": 0.1966789573431015,
+      "mean_abs_r": 0.39335791661290054,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.12942805513739586,
+      "within_species_scale": 0.36267980486154555
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s5/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: VEGFA | filters: 5+5 incl/skip, kernel: 6 nt | motif: no planted motif | epochs: 500 | final loss 0.3510 (sd 0.3120) | lr 0.01, ortho\u03bb 0.5, pool 18, \u03c3 1.5, seed 5",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s5/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s5/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s5/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s5/plots/filter_logos_real.png",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s5/plots/model_logos.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs/vegfa_f5_k6_s5/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "model_logo_frac": 0.5,
+    "generated_at": "2026-09-16T21:26:15"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/vegfa/alignment_matrix.npy",
+    "windows_per_bank": 993107,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 367050,
+        "1": 247005,
+        "2": 223193,
+        "3": 353270,
+        "4": 156051
+      },
+      "SKIP": {
+        "0": 441524,
+        "1": 707224,
+        "2": 391673,
+        "3": 80053,
+        "4": 398122
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TGTGGC",
+        "1": "GCAGTC",
+        "2": "CTGGTT",
+        "3": "CCCCCC",
+        "4": "TTATTT"
+      },
+      "SKIP": {
+        "0": "GGGCGG",
+        "1": "GGGCCC",
+        "2": "CCCGTG",
+        "3": "AAAAAA",
+        "4": "GGGGTG"
+      }
+    }
+  },
+  "model_logos": {
+    "frac": 0.5,
+    "n_kmers": 4096,
+    "net_sr_median": -0.25179147720336914,
+    "net_sr_min": -2.5596423149108887,
+    "net_sr_max": 2.2769625186920166,
+    "panels": {
+      "INCL": {
+        "cutoff": 1.0125855207443237,
+        "n_selected": 762,
+        "consensus": "TCAGCT",
+        "best_kmer": "TCAAAT",
+        "best_score": 2.2769625186920166
+      },
+      "SKIP": {
+        "cutoff": -1.405716896057129,
+        "n_selected": 948,
+        "consensus": "GACCTG",
+        "best_kmer": "GACCTG",
+        "best_score": -2.5596423149108887
+      }
+    }
+  }
+}
