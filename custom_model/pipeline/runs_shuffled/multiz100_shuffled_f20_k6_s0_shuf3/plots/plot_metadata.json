@@ -1,0 +1,178 @@
+{
+  "metadata": {
+    "dataset": "real",
+    "script": "run_pipeline.py",
+    "motif": null,
+    "matrix_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100_shuffled/shuf3/alignment_matrix.npy",
+    "hparams": {
+      "gene": "multiz100_shuffled",
+      "gene_label": "MALAT1_shuffled",
+      "num_filters": 20,
+      "kernel_size": 6,
+      "num_epochs": 500,
+      "lr": 0.01,
+      "ortho_lambda": 0.5,
+      "pool_length": 18,
+      "l1_lambda": 0.0,
+      "smooth_sigma": 1.5,
+      "seed": 0,
+      "n_sample": 62,
+      "min_species": 31
+    },
+    "final": {
+      "loss": 0.44664257764816284,
+      "sd_loss": 0.4135456085205078,
+      "ortho": 0.033096980303525925,
+      "mean_abs_r": 0.06619396039240774,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.06226037070155144,
+      "within_species_scale": 0.15055260062217712
+    },
+    "first_10_epochs_avg": {
+      "loss": 0.6875578045845032,
+      "sd_loss": 0.5423494160175324,
+      "ortho": 0.14520838409662246,
+      "mean_abs_r": 0.2904167708587617,
+      "l1": 0.0,
+      "raw_mean_col_sd": 0.3258544519543648,
+      "within_species_scale": 0.6109552323818207
+    },
+    "history_path": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_shuffled/multiz100_shuffled_f20_k6_s0_shuf3/history.npz",
+    "history_every": 10
+  },
+  "caption": "dataset: real | model: ? | gene: MALAT1_shuffled | filters: 20+20 incl/skip, kernel: 6 nt | motif: no planted motif | epochs: 500 | final loss 0.4466 (sd 0.4135) | lr 0.01, ortho\u03bb 0.5, pool 18, \u03c3 1.5, seed 0",
+  "provenance": {
+    "weights": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_shuffled/multiz100_shuffled_f20_k6_s0_shuf3/weights.pt",
+    "epoch": 500,
+    "heatmap_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_shuffled/multiz100_shuffled_f20_k6_s0_shuf3/plots/filters.png",
+    "logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_shuffled/multiz100_shuffled_f20_k6_s0_shuf3/plots/filter_logos.png",
+    "real_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_shuffled/multiz100_shuffled_f20_k6_s0_shuf3/plots/filter_logos_real.png",
+    "model_logos_png": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_shuffled/multiz100_shuffled_f20_k6_s0_shuf3/plots/model_logos.png",
+    "filter_txt": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs_shuffled/multiz100_shuffled_f20_k6_s0_shuf3/plots/real_filters.txt",
+    "logo_activation_frac": 0.5,
+    "min_contribution_frac": 0.05,
+    "model_logo_frac": 0.5,
+    "generated_at": "2026-09-23T21:36:24"
+  },
+  "gains": null,
+  "real_activation": {
+    "matrix": "/Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/data/multiz100_shuffled/shuf3/alignment_matrix.npy",
+    "windows_per_bank": 421668,
+    "activation_frac": 0.5,
+    "fires": {
+      "INCL": {
+        "0": 64285,
+        "1": 100235,
+        "2": 102177,
+        "3": 147861,
+        "4": 96094,
+        "5": 42773,
+        "6": 94095,
+        "7": 145399,
+        "8": 107718,
+        "9": 73992,
+        "10": 56033,
+        "11": 52407,
+        "12": 9868,
+        "13": 96978,
+        "14": 105915,
+        "15": 53463,
+        "16": 241497,
+        "17": 131386,
+        "18": 115315,
+        "19": 32752
+      },
+      "SKIP": {
+        "0": 160557,
+        "1": 156484,
+        "2": 43284,
+        "3": 138288,
+        "4": 101726,
+        "5": 12356,
+        "6": 54759,
+        "7": 224499,
+        "8": 227299,
+        "9": 177900,
+        "10": 86379,
+        "11": 118582,
+        "12": 40727,
+        "13": 60013,
+        "14": 135343,
+        "15": 49397,
+        "16": 28759,
+        "17": 116954,
+        "18": 29282,
+        "19": 184987
+      }
+    },
+    "consensus": {
+      "INCL": {
+        "0": "TATCTC",
+        "1": "AGATAT",
+        "2": "TATGTT",
+        "3": "GATATT",
+        "4": "GGTGTT",
+        "5": "CAGTCT",
+        "6": "TACACT",
+        "7": "GATATA",
+        "8": "AATGTT",
+        "9": "AATAAA",
+        "10": "AATAAA",
+        "11": "AGGATG",
+        "12": "GATTAG",
+        "13": "AGTAGT",
+        "14": "AGTGTA",
+        "15": "AATTAA",
+        "16": "ATTTGA",
+        "17": "TAAGTA",
+        "18": "GATATT",
+        "19": "GGTGGT"
+      },
+      "SKIP": {
+        "0": "AAGTGT",
+        "1": "TGACGA",
+        "2": "CTCTGT",
+        "3": "AAATAA",
+        "4": "TGTGAT",
+        "5": "ACGATG",
+        "6": "GAACGT",
+        "7": "TTATAT",
+        "8": "GTGTTT",
+        "9": "AAATAA",
+        "10": "CTAAAG",
+        "11": "ATGTAT",
+        "12": "CTTGCT",
+        "13": "CCGAGA",
+        "14": "ATATAA",
+        "15": "TAGATA",
+        "16": "ATAGTA",
+        "17": "TATGGT",
+        "18": "TTAGTG",
+        "19": "AAGTGT"
+      }
+    }
+  },
+  "model_logos": {
+    "frac": 0.5,
+    "n_kmers": 4096,
+    "net_sr_median": -5.329779624938965,
+    "net_sr_min": -12.295207977294922,
+    "net_sr_max": 1.321258544921875,
+    "panels": {
+      "INCL": {
+        "cutoff": -2.004260540008545,
+        "n_selected": 557,
+        "consensus": "CGCACG",
+        "best_kmer": "CGCGTG",
+        "best_score": 1.321258544921875
+      },
+      "SKIP": {
+        "cutoff": -8.812493801116943,
+        "n_selected": 604,
+        "consensus": "ACGCGT",
+        "best_kmer": "ACGCAT",
+        "best_score": -12.295207977294922
+      }
+    }
+  }
+}
