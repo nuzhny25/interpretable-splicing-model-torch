@@ -1,0 +1,9 @@
+config,level,across,metric,n_model_pairs,mean,sd,chance
+f20_k6,filters,seeds,|r|,15,0.218212,0.014326,0.189254
+f20_k6,filters,genes,|r|,15,0.204992,0.014831,0.189254
+f20_k6,whole model,seeds,|r|,15,0.763254,0.194423,0.146553
+f20_k6,whole model,genes,|r|,15,0.638460,0.221659,0.146553
+f20_k8,filters,seeds,|r|,15,0.194649,0.014005,0.163623
+f20_k8,filters,genes,|r|,15,0.196583,0.013772,0.163623
+f20_k8,whole model,seeds,|r|,15,0.822356,0.157950,0.167945
+f20_k8,whole model,genes,|r|,15,0.710935,0.191441,0.167945

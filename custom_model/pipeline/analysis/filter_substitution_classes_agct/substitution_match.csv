@@ -1,0 +1,2 @@
+gene,arch,n_seeds,pearson_all6,spearman_all6,pearson_transversions,freq_AC,sens_AC,freq_AG,sens_AG,freq_AT,sens_AT,freq_CG,sens_CG,freq_CT,sens_CT,freq_GT,sens_GT
+multiz100,f20_k6,6,-0.9739,-1.0,-0.8969,0.1161,0.2042,0.2965,0.1017,0.1488,0.1793,0.0781,0.2075,0.2285,0.115,0.1319,0.1923

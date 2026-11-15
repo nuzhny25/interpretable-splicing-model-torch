@@ -1,0 +1,121 @@
+config,level,across,model_a,model_b,value
+f20_k6,filters,seeds,s0,s1,0.207173
+f20_k6,filters,seeds,s0,s2,0.249174
+f20_k6,filters,seeds,s0,s3,0.201869
+f20_k6,filters,seeds,s0,s4,0.227196
+f20_k6,filters,seeds,s0,s5,0.200792
+f20_k6,filters,seeds,s1,s2,0.219572
+f20_k6,filters,seeds,s1,s3,0.238812
+f20_k6,filters,seeds,s1,s4,0.217125
+f20_k6,filters,seeds,s1,s5,0.217709
+f20_k6,filters,seeds,s2,s3,0.217213
+f20_k6,filters,seeds,s2,s4,0.235731
+f20_k6,filters,seeds,s2,s5,0.205412
+f20_k6,filters,seeds,s3,s4,0.220449
+f20_k6,filters,seeds,s3,s5,0.209315
+f20_k6,filters,seeds,s4,s5,0.205643
+f20_k6,filters,genes,MALAT1,NEAT1,0.241500
+f20_k6,filters,genes,MALAT1,HOTAIR,0.191388
+f20_k6,filters,genes,MALAT1,IL6,0.205132
+f20_k6,filters,genes,MALAT1,VEGFA,0.181966
+f20_k6,filters,genes,MALAT1,XIST,0.216095
+f20_k6,filters,genes,NEAT1,HOTAIR,0.201270
+f20_k6,filters,genes,NEAT1,IL6,0.201253
+f20_k6,filters,genes,NEAT1,VEGFA,0.191674
+f20_k6,filters,genes,NEAT1,XIST,0.213024
+f20_k6,filters,genes,HOTAIR,IL6,0.213892
+f20_k6,filters,genes,HOTAIR,VEGFA,0.224219
+f20_k6,filters,genes,HOTAIR,XIST,0.200209
+f20_k6,filters,genes,IL6,VEGFA,0.198208
+f20_k6,filters,genes,IL6,XIST,0.195420
+f20_k6,filters,genes,VEGFA,XIST,0.199633
+f20_k6,whole model,seeds,s0,s1,0.532289
+f20_k6,whole model,seeds,s0,s2,0.983942
+f20_k6,whole model,seeds,s0,s3,0.677965
+f20_k6,whole model,seeds,s0,s4,0.946168
+f20_k6,whole model,seeds,s0,s5,0.388331
+f20_k6,whole model,seeds,s1,s2,0.652702
+f20_k6,whole model,seeds,s1,s3,0.950361
+f20_k6,whole model,seeds,s1,s4,0.754974
+f20_k6,whole model,seeds,s1,s5,0.955658
+f20_k6,whole model,seeds,s2,s3,0.763369
+f20_k6,whole model,seeds,s2,s4,0.986272
+f20_k6,whole model,seeds,s2,s5,0.506477
+f20_k6,whole model,seeds,s3,s4,0.831339
+f20_k6,whole model,seeds,s3,s5,0.903005
+f20_k6,whole model,seeds,s4,s5,0.615949
+f20_k6,whole model,genes,MALAT1,NEAT1,0.970172
+f20_k6,whole model,genes,MALAT1,HOTAIR,0.503743
+f20_k6,whole model,genes,MALAT1,IL6,0.420982
+f20_k6,whole model,genes,MALAT1,VEGFA,0.328748
+f20_k6,whole model,genes,MALAT1,XIST,0.940202
+f20_k6,whole model,genes,NEAT1,HOTAIR,0.589066
+f20_k6,whole model,genes,NEAT1,IL6,0.564644
+f20_k6,whole model,genes,NEAT1,VEGFA,0.430302
+f20_k6,whole model,genes,NEAT1,XIST,0.980492
+f20_k6,whole model,genes,HOTAIR,IL6,0.673922
+f20_k6,whole model,genes,HOTAIR,VEGFA,0.966463
+f20_k6,whole model,genes,HOTAIR,XIST,0.604380
+f20_k6,whole model,genes,IL6,VEGFA,0.591194
+f20_k6,whole model,genes,IL6,XIST,0.577118
+f20_k6,whole model,genes,VEGFA,XIST,0.435477
+f20_k8,filters,seeds,s0,s1,0.207325
+f20_k8,filters,seeds,s0,s2,0.202656
+f20_k8,filters,seeds,s0,s3,0.223089
+f20_k8,filters,seeds,s0,s4,0.179259
+f20_k8,filters,seeds,s0,s5,0.202963
+f20_k8,filters,seeds,s1,s2,0.194676
+f20_k8,filters,seeds,s1,s3,0.207050
+f20_k8,filters,seeds,s1,s4,0.172745
+f20_k8,filters,seeds,s1,s5,0.190012
+f20_k8,filters,seeds,s2,s3,0.202465
+f20_k8,filters,seeds,s2,s4,0.192151
+f20_k8,filters,seeds,s2,s5,0.187131
+f20_k8,filters,seeds,s3,s4,0.180696
+f20_k8,filters,seeds,s3,s5,0.202232
+f20_k8,filters,seeds,s4,s5,0.175281
+f20_k8,filters,genes,MALAT1,NEAT1,0.215612
+f20_k8,filters,genes,MALAT1,HOTAIR,0.207123
+f20_k8,filters,genes,MALAT1,IL6,0.205566
+f20_k8,filters,genes,MALAT1,VEGFA,0.184476
+f20_k8,filters,genes,MALAT1,XIST,0.210840
+f20_k8,filters,genes,NEAT1,HOTAIR,0.201484
+f20_k8,filters,genes,NEAT1,IL6,0.207624
+f20_k8,filters,genes,NEAT1,VEGFA,0.174529
+f20_k8,filters,genes,NEAT1,XIST,0.205184
+f20_k8,filters,genes,HOTAIR,IL6,0.195388
+f20_k8,filters,genes,HOTAIR,VEGFA,0.188178
+f20_k8,filters,genes,HOTAIR,XIST,0.203803
+f20_k8,filters,genes,IL6,VEGFA,0.171333
+f20_k8,filters,genes,IL6,XIST,0.197813
+f20_k8,filters,genes,VEGFA,XIST,0.179792
+f20_k8,whole model,seeds,s0,s1,0.986007
+f20_k8,whole model,seeds,s0,s2,0.806509
+f20_k8,whole model,seeds,s0,s3,0.981454
+f20_k8,whole model,seeds,s0,s4,0.554700
+f20_k8,whole model,seeds,s0,s5,0.983457
+f20_k8,whole model,seeds,s1,s2,0.820056
+f20_k8,whole model,seeds,s1,s3,0.989487
+f20_k8,whole model,seeds,s1,s4,0.638299
+f20_k8,whole model,seeds,s1,s5,0.985825
+f20_k8,whole model,seeds,s2,s3,0.792925
+f20_k8,whole model,seeds,s2,s4,0.725315
+f20_k8,whole model,seeds,s2,s5,0.833010
+f20_k8,whole model,seeds,s3,s4,0.599259
+f20_k8,whole model,seeds,s3,s5,0.978597
+f20_k8,whole model,seeds,s4,s5,0.660438
+f20_k8,whole model,genes,MALAT1,NEAT1,0.990361
+f20_k8,whole model,genes,MALAT1,HOTAIR,0.833112
+f20_k8,whole model,genes,MALAT1,IL6,0.769103
+f20_k8,whole model,genes,MALAT1,VEGFA,0.500938
+f20_k8,whole model,genes,MALAT1,XIST,0.952890
+f20_k8,whole model,genes,NEAT1,HOTAIR,0.848291
+f20_k8,whole model,genes,NEAT1,IL6,0.777162
+f20_k8,whole model,genes,NEAT1,VEGFA,0.511267
+f20_k8,whole model,genes,NEAT1,XIST,0.927488
+f20_k8,whole model,genes,HOTAIR,IL6,0.610152
+f20_k8,whole model,genes,HOTAIR,VEGFA,0.559122
+f20_k8,whole model,genes,HOTAIR,XIST,0.792687
+f20_k8,whole model,genes,IL6,VEGFA,0.345750
+f20_k8,whole model,genes,IL6,XIST,0.710264
+f20_k8,whole model,genes,VEGFA,XIST,0.535434

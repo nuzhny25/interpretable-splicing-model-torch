@@ -1,0 +1,64 @@
+Pairwise filter-bank distance (1 - cos on gauge-centered filters, optimally matched,
+minimized over the incl<->skip bank swap). 0 = identical banks.
+max-shift: 0 nt | runs dir: /Users/sashan/Documents/Regev_Lab/interpretable-splicing-model-torch/interpretable-splicing-model-torch/custom_model/pipeline/runs
+
+      arch group                      n     mean   median       sd
+     f5_k1 same gene, diff seed      90   0.5278   0.5147   0.1278
+     f5_k1 diff gene, same seed      90   0.0408   0.0055   0.0719
+     f5_k1 diff gene, diff seed     450   0.5283   0.5177   0.1253
+     f5_k1 [untrained floor]         16   0.4491            0.0850
+
+     f5_k3 same gene, diff seed      90   0.5960   0.5872   0.0735
+     f5_k3 diff gene, same seed      90   0.3140   0.2881   0.1598
+     f5_k3 diff gene, diff seed     450   0.6189   0.6096   0.0741
+     f5_k3 [untrained floor]         16   0.6822            0.0523
+
+    f10_k3 same gene, diff seed      90   0.5392   0.5445   0.0581
+    f10_k3 diff gene, same seed      90   0.2238   0.2164   0.0903
+    f10_k3 diff gene, diff seed     450   0.5576   0.5595   0.0555
+    f10_k3 [untrained floor]         16   0.5727            0.0314
+
+     f5_k6 same gene, diff seed      90   0.6921   0.6965   0.0648
+     f5_k6 diff gene, same seed      90   0.2777   0.2791   0.1024
+     f5_k6 diff gene, diff seed     450   0.7276   0.7309   0.0595
+     f5_k6 [untrained floor]         16   0.7635            0.0383
+
+    f10_k6 same gene, diff seed      90   0.6067   0.6029   0.0642
+    f10_k6 diff gene, same seed      90   0.3279   0.3212   0.1004
+    f10_k6 diff gene, diff seed     450   0.6414   0.6444   0.0550
+    f10_k6 [untrained floor]         16   0.6973            0.0206
+
+    f20_k6 same gene, diff seed      90   0.5414   0.5247   0.0597
+    f20_k6 diff gene, same seed      90   0.3820   0.3574   0.1430
+    f20_k6 diff gene, diff seed     450   0.5881   0.5948   0.0505
+    f20_k6 [untrained floor]         16   0.6305            0.0140
+
+    f10_k8 same gene, diff seed      90   0.6049   0.5992   0.0582
+    f10_k8 diff gene, same seed      90   0.4046   0.3656   0.1477
+    f10_k8 diff gene, diff seed     450   0.6645   0.6631   0.0553
+    f10_k8 [untrained floor]         16   0.7367            0.0191
+
+    f20_k8 same gene, diff seed      90   0.5537   0.5553   0.0421
+    f20_k8 diff gene, same seed      90   0.3493   0.3085   0.1398
+    f20_k8 diff gene, diff seed     450   0.6046   0.6049   0.0422
+    f20_k8 [untrained floor]         16   0.6727            0.0118
+
+
+Contrasts (per architecture):
+  gene-vs-seed  = mean(diff gene, same seed) - mean(same gene, diff seed)
+                  > 0 means changing the gene moves the bank more than the seed
+  init-residue  = mean(diff gene, diff seed) - mean(diff gene, same seed)
+                  > 0 means a shared initialization is still visible after training
+  vs-chance     = mean(same gene, diff seed) - untrained floor
+                  how far two runs of the SAME gene beat chance; ~0 means the seed
+                  decides essentially everything the filters end up being
+
+      arch   gene-vs-seed   init-residue      vs-chance
+     f5_k1        -0.4871        +0.4875        +0.0788
+     f5_k3        -0.2820        +0.3049        -0.0861
+    f10_k3        -0.3154        +0.3338        -0.0336
+     f5_k6        -0.4144        +0.4499        -0.0714
+    f10_k6        -0.2787        +0.3134        -0.0907
+    f20_k6        -0.1595        +0.2062        -0.0890
+    f10_k8        -0.2003        +0.2600        -0.1318
+    f20_k8        -0.2044        +0.2553        -0.1190

@@ -1,0 +1,7 @@
+run,gene,num_filters,kernel,seed,control_alphabet,ref_share_RY,ref_share_SW,ref_share_KM,slot_share_RY,slot_share_SW,slot_share_KM,true_share_RY,true_share_SW,true_share_KM,reference_dominant,slot_dominant,true_dominant,letters_predicts_slot_axis,outcome
+multiz100_f20_k6_s0,multiz100,20,6,0,agct,0.6445,0.183,0.1725,0.1725,0.2001,0.6273,0.6273,0.2001,0.1725,R/Y,K/M,R/Y,K/M,letters
+multiz100_f20_k6_s1,multiz100,20,6,1,agct,0.5942,0.2392,0.1667,0.2165,0.2511,0.5323,0.5323,0.2511,0.2165,R/Y,K/M,R/Y,K/M,letters
+multiz100_f20_k6_s2,multiz100,20,6,2,agct,0.6162,0.2125,0.1713,0.1982,0.251,0.5507,0.5507,0.251,0.1982,R/Y,K/M,R/Y,K/M,letters
+multiz100_f20_k6_s3,multiz100,20,6,3,agct,0.6536,0.1808,0.1656,0.2585,0.1979,0.5437,0.5437,0.1979,0.2585,R/Y,K/M,R/Y,K/M,letters
+multiz100_f20_k6_s4,multiz100,20,6,4,agct,0.5545,0.1772,0.2684,0.1961,0.2324,0.5715,0.5715,0.2324,0.1961,R/Y,K/M,R/Y,K/M,letters
+multiz100_f20_k6_s5,multiz100,20,6,5,agct,0.5143,0.2369,0.2488,0.2064,0.222,0.5716,0.5716,0.222,0.2064,R/Y,K/M,R/Y,K/M,letters
