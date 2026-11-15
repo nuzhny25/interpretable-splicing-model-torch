@@ -2,21 +2,34 @@
 
 Loads weights saved by custom_real_train.py (``weights/custom_model.pt`` by
 default), prints each learned conv filter's consensus motif (the argmax
-nucleotide at every kernel position), renders every INCL/SKIP filter as a
+letter at every kernel position), renders every INCL/SKIP filter as a
 heat map, and renders each filter as an information-content (bits) sequence logo
 built from the k-mers whose softplus activation reaches at least a fraction (default
 half, see --logo-activation-frac) of that filter's peak (see experiment/filter_max_scan.py).
 The same logos are also rendered a second time (``--real-logos``) from the real
 alignment instead of the exhaustive k-mer scan: there each above-threshold *window* of
 the aligned species counts once, so the logo is weighted by how often the filter's
-targets actually occur in the locus rather than treating all 4**k k-mers as equally
+targets actually occur in the locus rather than treating all ``|A|**k`` k-mers as equally
 likely. Real cross-species training has no planted motif, so the readout is
 motif-agnostic: it reports what each filter converged to rather than scoring it
 against a known target.
 
-The filter count and kernel width are read from the checkpoint, so a bank of any size
-plots correctly; ``k`` below is that checkpoint's kernel size (6 in the original PNAS
-architecture).
+A third logo figure (``--model-logos``) steps back from single filters to the whole model.
+Every enumerated k-mer is scored by the model's net output, sum softplus(INCL) - sum
+softplus(SKIP) — the per-window SR balance the loss is computed from — and two logos are
+drawn: one from the k-mers where inclusion dominates (the highest scores) and one from those
+where skipping dominates (the lowest). The loss ignores any constant shift of that score, so
+"high" and "low" are measured from the median k-mer rather than from zero (see
+``--model-logo-frac``). It reads the function the bank computes rather than how that
+function happens to be split across its filters.
+
+The filter count, the kernel width and the *sequence alphabet* are all read from the
+checkpoint, so a bank of any size plots correctly; ``k`` below is that checkpoint's
+kernel size (6 in the original PNAS architecture) and ``|A|`` its channel count. A
+checkpoint from pipeline/run_pipeline_ry.py has 2 channels over purine/pyrimidine R/Y
+instead of 4 over A/C/G/T, which rescales the k-mer scan (``2**k`` rows) and the
+information-content ceiling (1 bit per column rather than 2); everything else about the
+readout is unchanged.
 
 Run after training:
 
@@ -44,14 +57,25 @@ import torch
 import torch.nn.functional as F
 
 from custom_model import PNASModel
-from custom_utils import DNA_ALPHABET, one_hot_batch, str_to_vector
+from custom_utils import encode_sequence, one_hot_batch, resolve_alphabet
 
-NUCLEOTIDES = ["A", "C", "G", "T"]
+# Ceiling on the exhaustive k-mer scan behind the theoretical logos. |A|**k rows: over
+# A/C/G/T that is 4,096 at the default kernel 6, 65,536 at kernel 8, 1,048,576 at kernel
+# 10 — past which the one-hot array alone runs to gigabytes. A reduced alphabet is far
+# cheaper (2**k over R/Y) and never approaches the cap at any kernel width in use.
+MAX_ENUMERATED_KMERS = 1 << 21  # 2,097,152 ~ kernel 10 over A/C/G/T
 
-# Ceiling on the exhaustive k-mer scan behind the theoretical logos. 4**k rows: 4,096
-# at the default kernel 6, 65,536 at kernel 8, 1,048,576 at kernel 10 — past which the
-# one-hot array alone runs to gigabytes.
-MAX_ENUMERATED_KMERS = 1 << 21  # 2,097,152 ~ kernel 10
+# Glyph colors per alphabet. logomaker's built-in "classic" scheme only defines A/C/G/T
+# (and U), so a reduced alphabet has to name its own colors or every letter comes out
+# black. Keyed by the alphabet's letters; both R and Y are real glyphs in logomaker's
+# protein alphabet, so they render like any other letter.
+LOGO_COLOR_SCHEME = {
+    "ACGT": "classic",
+    "RY": {"R": "#1b7837", "Y": "#762a83"},  # purine green, pyrimidine purple
+    # The C/G-swapped control. "classic" colors by letter, not by channel slot, so a
+    # swapped run's logos use the same colors as its A/C/G/T counterpart.
+    "AGCT": "classic",
+}
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -59,22 +83,55 @@ logger = logging.getLogger(__name__)
 _HERE = os.path.dirname(__file__)
 
 
-def filter_consensus(conv_weight) -> tuple[list[str], list[float]]:
+def filter_consensus(conv_weight, alphabet: str) -> tuple[list[str], list[float]]:
     """Per-filter consensus motif and L1 strength.
 
-    For each filter (4 x K) the consensus is the argmax nucleotide at every
+    For each filter (|alphabet| x K) the consensus is the argmax letter at every
     kernel position; strength is the filter's summed absolute weight. With no
     planted motif to score against, this reports what each filter converged to.
+
+    Args:
+        conv_weight: One bank's weights, ``(num_filters, len(alphabet), kernel_size)``.
+        alphabet: The checkpoint's sequence alphabet, whose letters name the channels
+            in order — ``"ACGT"`` for a base-identity model, ``"RY"`` for a
+            purine/pyrimidine one.
     """
     _, _, k = conv_weight.shape
     consensus, strength = [], []
     for f in range(conv_weight.shape[0]):
         w = conv_weight[f]
         consensus.append(
-            "".join(NUCLEOTIDES[w[:, p].argmax().item()] for p in range(k))
+            "".join(alphabet[w[:, p].argmax().item()] for p in range(k))
         )
         strength.append(w.abs().sum().item())
     return consensus, strength
+
+
+def model_score_logo(
+    onehot: np.ndarray, sel_idx: np.ndarray, alphabet: str, max_bits: float
+) -> tuple[np.ndarray, str]:
+    """Information-content logo of k-mers selected by their whole-model score.
+
+    Same math as the per-filter logos: per-position letter frequencies with no
+    pseudocount (a letter absent from every selected k-mer stays 0 and draws nothing),
+    scaled by the column's Shannon information log2|A| + sum f*log2 f.
+
+    Args:
+        onehot: Every enumerated k-mer, ``(n_kmers, len(alphabet), kernel_size)``.
+        sel_idx: Row indices into ``onehot`` of the selected k-mers (at least one).
+        alphabet: The checkpoint's sequence alphabet, naming the channels in order.
+        max_bits: Information ceiling of one column, ``log2(len(alphabet))``.
+
+    Returns:
+        ``(heights, consensus)``: letter heights ``(len(alphabet), kernel_size)``, all
+        >= 0, and the argmax letter at every position.
+    """
+    freq = onehot[sel_idx].sum(axis=0) / len(sel_idx)  # each column sums to 1
+    log_freq = np.log2(freq, out=np.zeros_like(freq), where=freq > 0)
+    info = max_bits + np.sum(freq * log_freq, axis=0)
+    heights = freq * info[None, :]
+    consensus = "".join(alphabet[c] for c in freq.argmax(axis=0))
+    return heights, consensus
 
 
 def main():
@@ -105,7 +162,7 @@ def main():
         default=os.path.join(_HERE, "filter_logos_real.png"),
         help="Output path for the real-data information-content (bits) logo figure: same "
         "filters and layout as --logos, but each logo is built from the real alignment "
-        "windows that fire the filter (see --matrix) instead of the exhaustive 4**k "
+        "windows that fire the filter (see --matrix) instead of the exhaustive |A|**k "
         "k-mer scan. Written only when the alignment matrix exists.",
     )
     parser.add_argument(
@@ -146,7 +203,28 @@ def main():
         "real-data figure title. Defaults to the --matrix path's parent directory "
         "name (e.g. 'multiz100' for MALAT1, 'neat1' for NEAT1).",
     )
+    parser.add_argument(
+        "--model-logos",
+        default=os.path.join(_HERE, "model_logos.png"),
+        help="Output path for the whole-model logo figure: two information-content "
+        "logos built from the exhaustive k-mer scan, scored by the model's net SR "
+        "(sum softplus INCL - sum softplus SKIP). One panel holds the highest-scoring "
+        "k-mers (inclusion dominates), the other the lowest-scoring (skipping "
+        "dominates); see --model-logo-frac.",
+    )
+    parser.add_argument(
+        "--model-logo-frac",
+        type=float,
+        default=0.5,
+        help="Selection for --model-logos, measured from the median k-mer because the "
+        "loss ignores constant shifts of net SR: the INCL panel keeps k-mers at least "
+        "this fraction of the way from the median score to the maximum, the SKIP panel "
+        "those at least this fraction of the way from the median to the minimum "
+        "(default: 0.5). Must lie in [0, 1]; higher = fewer, sharper k-mers.",
+    )
     args = parser.parse_args()
+    if not 0.0 <= args.model_logo_frac <= 1.0:
+        parser.error(f"--model-logo-frac must lie in [0, 1], got {args.model_logo_frac}.")
 
     # Name the locus for the figure titles. The directory holding the matrix is the
     # gene's identity everywhere else in the repo, so it is the natural fallback when
@@ -163,8 +241,20 @@ def main():
     # filter count or kernel width would abort the load unless the model is
     # built to match. Reading the shape here is what lets one plotter serve every
     # architecture (the checkpoint is the only authority on what it contains).
-    n_filt, _, ksize = state_dict["conv_incl.weight"].shape
-    model = PNASModel(num_filters=n_filt, kernel_size=ksize)
+    # The channel count is the input alphabet's width, so it has to be read here too:
+    # a purine/pyrimidine run (pipeline/run_pipeline_ry.py) has 2 channels where an
+    # A/C/G/T run has 4, and that width drives the k-mer enumeration, the bit scale and
+    # every axis label below.
+    n_filt, n_chan, ksize = state_dict["conv_incl.weight"].shape
+    alphabet_name, alphabet = resolve_alphabet(
+        n_chan, (ckpt.get("metadata") or {}).get("hparams", {}).get("alphabet")
+    )
+    letters = list(alphabet)
+    # Information-content ceiling for one column: log2|A| bits, so 2.0 over A/C/G/T and
+    # 1.0 over R/Y. Every logo y-axis and every per-position info calculation below is
+    # scaled by this rather than by a literal 2.
+    max_bits = math.log2(len(alphabet))
+    model = PNASModel(seq_in_channels=n_chan, num_filters=n_filt, kernel_size=ksize)
     # strict=False so checkpoints from architecture variants that carry extra
     # parameters still load their conv banks here. custom_model_capped.py adds
     # per-filter gain logits; this plotter's PNASModel has no such parameter, so
@@ -273,16 +363,17 @@ def main():
     logger.info(f"Run metadata: {caption}")
 
     # ── Learned-filter readout (motif-agnostic, since real training has no planted
-    # motif): each filter's consensus motif (argmax nucleotide per kernel position)
+    # motif): each filter's consensus motif (argmax alphabet letter per kernel position)
     # and its strength, listed strongest-first within each conv bank. Ranked by the
     # gauge-invariant strength |w_c|_1 (raw |w|_1 counts the arbitrary per-column
     # offset the bias absorbs, so it over/under-states real discriminative power). ──
     readout_lines = [
-        "Learned filter consensus motifs (argmax nucleotide per kernel position), "
-        "ranked by gauge-invariant strength |w_c|_1 (sum of |median-centered weights|):"
+        f"Learned filter consensus motifs (argmax {'/'.join(letters)} per kernel "
+        "position), ranked by gauge-invariant strength |w_c|_1 (sum of "
+        "|median-centered weights|):"
     ]
     for name, conv in convs:
-        consensus, strength = filter_consensus(conv.weight.detach().cpu())
+        consensus, strength = filter_consensus(conv.weight.detach().cpu(), alphabet)
         bias = conv.bias.detach().cpu()
         # Median-center each filter column (removing the per-column offset the bias
         # absorbs), then sum |centered weights| for a gauge-invariant strength.
@@ -300,8 +391,8 @@ def main():
         logger.info(line)
 
     # ── Write the raw filter weights to a text file: the readout header, a shape
-    # line, then a pos1..posK grid per filter (rows A/C/G/T). Column widths match
-    # the existing *_filters.txt dumps (8-wide label, 9-wide value cells). ──
+    # line, then a pos1..posK grid per filter (one row per alphabet letter). Column
+    # widths match the existing *_filters.txt dumps (8-wide label, 9-wide value cells). ──
     pos_header = "".ljust(8) + "".join(
         f"pos{p + 1}".ljust(9) for p in range(kernel_size)
     )
@@ -321,7 +412,7 @@ def main():
                     f"(bias={bias[filter_idx]:+.4f}) ===\n"
                 )
                 fh.write(pos_header + "\n")
-                for ch_idx, nt in enumerate(NUCLEOTIDES):
+                for ch_idx, nt in enumerate(letters):
                     cells = "".join(
                         f"{weight[filter_idx, ch_idx, p]:+.4f}".ljust(9)
                         for p in range(kernel_size)
@@ -329,7 +420,8 @@ def main():
                     fh.write(f"  {nt}".ljust(8) + cells + "\n")
     logger.info(f"Wrote raw filter values to {args.txt}")
 
-    # ── Plot all filters as heat maps (4 x 6 each: rows A/C/G/T, columns = 6 kernel positions) ──
+    # ── Plot all filters as heat maps (|A| x K each: one row per alphabet letter,
+    # columns = kernel positions; 4 x 6 for an A/C/G/T run, 2 x 6 for an R/Y one) ──
 
     # Shared symmetric color scale (diverging around 0) so filters are comparable.
     all_w = torch.cat([conv.weight.detach().cpu().reshape(-1) for _, conv in convs])
@@ -376,8 +468,8 @@ def main():
                 ax.set_title(
                     f"{name} #{filter_idx}  b={bias[filter_idx]:+.2f}", fontsize=8
                 )
-            ax.set_yticks(range(len(NUCLEOTIDES)))
-            ax.set_yticklabels(NUCLEOTIDES, fontsize=6)
+            ax.set_yticks(range(len(letters)))
+            ax.set_yticklabels(letters, fontsize=6)
             ax.set_xticks(range(kernel_size))
             ax.set_xticklabels(range(1, kernel_size + 1), fontsize=6)
 
@@ -392,13 +484,15 @@ def main():
             for p in [g / g.sum()]
         )
         fig.suptitle(
-            "conv_incl / conv_skip filters (rows A/C/G/T, cols = kernel position)\n"
+            f"conv_incl / conv_skip filters (rows {'/'.join(letters)}, "
+            "cols = kernel position)\n"
             f"gain allocation — {alloc}",
             fontsize=10,
         )
     else:
         fig.suptitle(
-            "conv_incl / conv_skip filters (rows A/C/G/T, cols = kernel position)"
+            f"conv_incl / conv_skip filters (rows {'/'.join(letters)}, "
+            "cols = kernel position)"
         )
     # Run-metadata footer (bbox_inches="tight" below keeps it in frame).
     fig.text(0.5, 0.005, caption, ha="center", va="bottom", fontsize=7, wrap=True)
@@ -409,12 +503,12 @@ def main():
     # ── Plot each *significant* filter as an information-content (bits) sequence logo
     # built from the k-mers it maximally activates on, mirroring experiment/filter_max_scan.py.
     # Because the kernel spans the whole input window, a filter's response over
-    # every possible input is an exhaustive scan of the 4**kernel_size k-mers. For each
+    # every possible input is an exhaustive scan of the |A|**kernel_size k-mers. For each
     # filter we keep every k-mer whose softplus activation reaches --logo-activation-frac
     # of that filter's own peak (default 0.5 = the half-max set), then turn the base
     # composition of that above-threshold set into a standard Shannon information logo:
     # per-position frequencies with no pseudocount (so a base absent from every selected
-    # k-mer stays exactly 0 and draws no letter — present nucleotides only), scaled by the
+    # k-mer stays exactly 0 and draws no letter — present letters only), scaled by the
     # column's information content 2 + Σ f·log2 f (max 2 bits for a fully conserved
     # column, ~0 for a uniform one). Letter heights are all >= 0, so nothing sits below
     # the axis. The number of selected k-mers and the peak softplus are printed per panel.
@@ -428,21 +522,25 @@ def main():
     # peak (softplus outputs are directly comparable across the INCL and SKIP banks),
     # strongest-first within each bank. ──
     #
-    # The enumeration is 4**kernel_size rows, so it is cheap at the usual kernel widths
-    # (4096 at k=6, 65536 at k=8) but explodes past that — k=12 would be 16.8M Python
-    # strings and a multi-GB one-hot array. Every filter's peak, and so the whole
-    # significance ranking below, is derived from this scan, so there is nothing
-    # sensible to fall back to: refuse loudly instead of wedging the machine.
-    n_kmers = 4**kernel_size
+    # The enumeration is |A|**kernel_size rows, so it is cheap at the usual kernel widths
+    # (over A/C/G/T, 4096 at k=6 and 65536 at k=8) but explodes past that — k=12 would be
+    # 16.8M Python strings and a multi-GB one-hot array. Every filter's peak, and so the
+    # whole significance ranking below, is derived from this scan, so there is nothing
+    # sensible to fall back to: refuse loudly instead of wedging the machine. A reduced
+    # alphabet shrinks the scan sharply (64 rows at R/Y k=6), which is why the k-mer and
+    # real-data logos agree much more closely on an R/Y run: the whole input space occurs
+    # in the alignment many times over.
+    n_kmers = len(alphabet) ** kernel_size
     if n_kmers > MAX_ENUMERATED_KMERS:
         raise SystemExit(
-            f"kernel_size={kernel_size} implies {n_kmers:,} k-mers to enumerate, above "
-            f"this plotter's {MAX_ENUMERATED_KMERS:,} cap. The filter heat maps and "
+            f"kernel_size={kernel_size} over {len(alphabet)} channels implies "
+            f"{n_kmers:,} k-mers to enumerate, above this plotter's "
+            f"{MAX_ENUMERATED_KMERS:,} cap. The filter heat maps and "
             f"{args.txt} were written; the logo figures need an exhaustive scan of the "
             "kernel's input space and are not tractable at this width."
         )
-    all_seqs = ["".join(p) for p in itertools.product(DNA_ALPHABET, repeat=kernel_size)]
-    onehot = one_hot_batch(all_seqs)  # (n_kmers, 4, kernel_size)
+    all_seqs = ["".join(p) for p in itertools.product(alphabet, repeat=kernel_size)]
+    onehot = one_hot_batch(all_seqs, alphabet)  # (n_kmers, len(alphabet), kernel_size)
 
     # First pass: per-filter above-threshold k-mers, info-content matrix, and peak.
     filter_logos = {name: [] for name, _ in convs}
@@ -463,7 +561,7 @@ def main():
             thresh = args.logo_activation_frac * peak
             # Every k-mer reaching the fraction of this filter's peak (>=1: the peak
             # itself always passes), strongest-first — the half-max set at frac=0.5.
-            # Threshold first, then sort only the survivors: sorting all 4**k
+            # Threshold first, then sort only the survivors: sorting all |A|**k
             # entries and filtering in a Python loop costs the full enumeration per
             # filter per bank, which is what made large kernels intractable.
             above = np.flatnonzero(outputs >= thresh)
@@ -471,18 +569,20 @@ def main():
             sel_seqs = [all_seqs[i] for i in sel_idx]
             n_sel = len(sel_seqs)
 
-            # Per-position base frequencies of the above-threshold k-mers. No
-            # pseudocount, so nucleotides absent from every selected k-mer stay
+            # Per-position letter frequencies of the above-threshold k-mers. No
+            # pseudocount, so letters absent from every selected k-mer stay
             # exactly 0 (no letter).
-            counts = one_hot_batch(sel_seqs).sum(axis=0)  # (4, kernel_size)
+            counts = one_hot_batch(sel_seqs, alphabet).sum(
+                axis=0
+            )  # (len(alphabet), kernel_size)
             freq = counts / n_sel  # each column sums to 1
-            # Shannon information content per position (bits): 2 + Σ f·log2 f, max 2
-            # for a fully conserved column, ~0 for a uniform one. Letter height =
-            # freq * info.
-            info = 2.0 + np.sum(
+            # Shannon information content per position (bits): log2|A| + Σ f·log2 f,
+            # max log2|A| for a fully conserved column (2 bits over A/C/G/T, 1 over
+            # R/Y) and ~0 for a uniform one. Letter height = freq * info.
+            info = max_bits + np.sum(
                 np.where(freq > 0, freq * np.log2(freq, where=freq > 0), 0.0), axis=0
             )
-            heights = freq * info[None, :]  # (4, kernel_size), all >= 0
+            heights = freq * info[None, :]  # (len(alphabet), kernel_size), all >= 0
             # "contrib" is the filter's largest possible contribution to the SR sum:
             # its peak activation scaled by its learned gain (1.0 when the checkpoint
             # has none). Only cross-filter comparisons need it — the
@@ -530,21 +630,26 @@ def main():
                 )  # per-filter, index == filter_idx
                 counts = np.zeros(num_filters, dtype=np.int64)
                 windows = 0
-                # Per-filter base composition of the firing windows, flattened to
-                # (num_filters, 4 * kernel_size) so it can be accumulated with one
-                # matmul per species (reshaped to (4, kernel_size) after the loop).
+                # Per-filter letter composition of the firing windows, flattened to
+                # (num_filters, channels * kernel_size) so it can be accumulated with one
+                # matmul per species (reshaped to (channels, kernel_size) after the loop).
                 # This is what turns the "fires" set into a real-data sequence logo:
                 # unlike the k-mer scan above, a k-mer that occurs 500 times in the
                 # alignment contributes 500 counts, so the logo is weighted by what the
                 # filter actually sees in this locus.
-                base_counts = np.zeros((num_filters, 4 * kernel_size), dtype=np.float64)
+                base_counts = np.zeros(
+                    (num_filters, channels * kernel_size), dtype=np.float64
+                )
                 for j in range(n_species):
                     col = matrix[:, j]
                     is_nuc = (col != "-") & (col != "N")
                     seq = "".join(col[is_nuc]).upper()
                     if len(seq) < kernel_size:
                         continue  # too short to hold a single window
-                    oh = str_to_vector(seq)  # (4, Lj), reused for the base counts below
+                    # (channels, Lj), reused for the base counts below. R/Y checkpoints
+                    # get the translated encoding, so the real windows live in the same
+                    # space the filters were trained in.
+                    oh = encode_sequence(seq, alphabet_name)
                     x = torch.tensor(oh, dtype=torch.float32).unsqueeze(0)
                     act = (
                         F.softplus(conv(x)).squeeze(0).numpy()
@@ -554,37 +659,38 @@ def main():
                     windows += act.shape[1]
                     # Every k-nt window as a flat one-hot row, then one matmul sums the
                     # one-hots of exactly the windows each filter fired on. Equivalent to
-                    # looping over fired windows and adding str_to_vector(window), but
+                    # looping over fired windows and adding encode_sequence(window), but
                     # BLAS-fast; float32 is exact here (counts stay far below 2**24).
                     sw = np.lib.stride_tricks.sliding_window_view(
                         oh, kernel_size, axis=1
-                    )  # (4, Lj-5, kernel_size)
+                    )  # (channels, Lj-K+1, kernel_size)
                     win = np.ascontiguousarray(sw.transpose(1, 0, 2)).reshape(
                         act.shape[1], -1
-                    )  # (Lj-5, 4 * kernel_size)
+                    )  # (Lj-K+1, channels * kernel_size)
                     base_counts += fired.astype(np.float32) @ win
                 for d in filter_logos[name]:
                     f = d["filter_idx"]
                     d["n_real"] = int(counts[f])
                     # Same information-content math as the k-mer logos above, applied
                     # to the real firing windows: per-position frequencies with no
-                    # pseudocount (absent bases stay 0 and draw no letter), scaled by the
-                    # column's Shannon information 2 + Σ f·log2 f (uniform background, so
-                    # heights stay on the standard 0-2 bit scale and are comparable to
-                    # the theoretical panels).
+                    # pseudocount (absent letters stay 0 and draw no letter), scaled by
+                    # the column's Shannon information log2|A| + Σ f·log2 f (uniform
+                    # background, so heights stay on the same 0-max_bits scale as the
+                    # theoretical panels and the two figures line up).
                     if d["n_real"] == 0:
                         d["real_heights"] = None
                         d["real_consensus"] = None
                         continue
-                    bc = base_counts[f].reshape(4, kernel_size)
+                    bc = base_counts[f].reshape(channels, kernel_size)
                     freq = bc / d["n_real"]  # each column sums to 1
-                    info = 2.0 + np.sum(
+                    info = max_bits + np.sum(
                         np.where(freq > 0, freq * np.log2(freq, where=freq > 0), 0.0),
                         axis=0,
                     )
-                    d["real_heights"] = freq * info[None, :]  # (4, kernel_size), >= 0
+                    # (channels, kernel_size), >= 0
+                    d["real_heights"] = freq * info[None, :]
                     d["real_consensus"] = "".join(
-                        NUCLEOTIDES[c] for c in freq.argmax(axis=0)
+                        alphabet[c] for c in freq.argmax(axis=0)
                     )
                 n_windows_total = windows  # same window set for both banks
         logger.info(
@@ -599,7 +705,7 @@ def main():
                 f"\n\nReal-data activation counts on {real_matrix_path}\n"
                 f"({n_windows_total:,} windows/bank across {n_species} species; a filter "
                 f"'fires' at a window when its softplus >= {args.logo_activation_frac:g} x "
-                "its theoretical peak; consensus = argmax base per position over those "
+                "its theoretical peak; consensus = argmax letter per position over those "
                 "firing windows, i.e. the real-data logo's consensus), strongest-first:\n"
             )
             for name, _ in convs:
@@ -678,13 +784,17 @@ def main():
         for i, d in enumerate(kept[name]):
             ax = axes[row_offset + i // n_cols][i % n_cols]
             ax.axis("on")
-            df = pd.DataFrame(d["heights"].T, columns=NUCLEOTIDES)
+            df = pd.DataFrame(d["heights"].T, columns=letters)
             logomaker.Logo(
                 df,
                 ax=ax,
-                color_scheme="classic",  # heights are all >= 0: nothing below the axis
+                # heights are all >= 0: nothing below the axis
+                color_scheme=LOGO_COLOR_SCHEME[alphabet],
             )
-            ax.set_ylim(0, 2)  # standard information-content scale (bits), comparable
+            # Information-content scale (bits), comparable across panels. The ceiling is
+            # the alphabet's, so R/Y logos are read against 1 bit rather than 2 — pinning
+            # it at 2 would silently render every R/Y logo at half height.
+            ax.set_ylim(0, max_bits)
             if i % n_cols == 0:
                 ax.set_ylabel("bits", fontsize=6)
             fires = f"  fires={d['n_real']}" if "n_real" in d else ""
@@ -728,9 +838,10 @@ def main():
     fig.suptitle(
         "conv_incl / conv_skip information-content (bits) logos\n"
         f"({num_kept}/{num_total} filters, peak softplus >= "
-        f"{args.min_contribution_frac:g}x strongest; from {kernel_size}-mers >= "
+        f"{args.min_contribution_frac:g}x strongest; from {kernel_size}-mers over "
+        f"{'/'.join(letters)} >= "
         f"{args.logo_activation_frac:g}x each filter's peak activation; "
-        f"present nucleotides only)",
+        f"present letters only, max {max_bits:g} bit{'s' if max_bits != 1 else ''})",
         y=1 - 0.12 * header_in / fig_h,
         va="top",
         fontsize=10,
@@ -801,9 +912,10 @@ def main():
                         fontsize=7,
                     )
                     continue
-                df = pd.DataFrame(d["real_heights"].T, columns=NUCLEOTIDES)
-                logomaker.Logo(df, ax=ax, color_scheme="classic")
-                ax.set_ylim(0, 2)  # same information-content scale as the figure above
+                df = pd.DataFrame(d["real_heights"].T, columns=letters)
+                logomaker.Logo(df, ax=ax, color_scheme=LOGO_COLOR_SCHEME[alphabet])
+                # Same information-content scale as the figure above
+                ax.set_ylim(0, max_bits)
                 if i % n_cols == 0:
                     ax.set_ylabel("bits", fontsize=6)
                 pct = 100.0 * d["n_real"] / n_windows_total if n_windows_total else 0.0
@@ -839,7 +951,8 @@ def main():
             "windows\n"
             f"({num_kept}/{num_total} filters; from the {n_windows_total:,} windows across "
             f"{n_species} species reaching {args.logo_activation_frac:g}x each filter's "
-            "peak; occurrence-weighted, uniform background, present nucleotides only)",
+            f"peak; occurrence-weighted, uniform background, present "
+            f"{'/'.join(letters)} only, max {max_bits:g} bit{'s' if max_bits != 1 else ''})",
             y=1 - 0.12 * header_in / r_fig_h,
             va="top",
             fontsize=10,
@@ -862,6 +975,137 @@ def main():
             f"{args.real_logos} was not written."
         )
 
+    # ── Whole-model logos: the k-mers the *summed* model scores highest and lowest ──
+    # Every figure above reads one filter at a time, but the loss only ever sees the
+    # net SR balance, sum softplus(INCL) - sum softplus(SKIP) (compute_sr_profile). Here
+    # every enumerated k-mer is scored by that net output, gain-scaled per filter on
+    # capped checkpoints exactly as the per-filter "contrib" above, and two logos are
+    # drawn: the k-mers where inclusion dominates and the ones where skipping dominates.
+    #
+    # The loss is invariant to a constant shift of net SR, so its zero point means
+    # nothing and "high"/"low" are measured from the median k-mer instead: the INCL panel
+    # keeps k-mers at least --model-logo-frac of the way from the median to the maximum,
+    # the SKIP panel those at least that far from the median to the minimum — the
+    # half-max rule of the per-filter logos at the default 0.5, anchored at the median
+    # rather than at 0. Ties survive (at k=1 two equal-scoring bases are both kept), which
+    # a fixed top-n cut would split arbitrarily. Each k-mer counts once, as in --logos.
+    kmer_bank_scores = {}
+    for name, conv in convs:
+        weight = conv.weight.detach().cpu().numpy()
+        bias = conv.bias.detach().cpu().numpy()
+        gain = gains[name] if name in gains else np.ones(num_filters, dtype=np.float32)
+        # One matmul per bank instead of one einsum per filter: flattened one-hots x
+        # flattened filters gives every (k-mer, filter) conv output at once.
+        raw = onehot.reshape(n_kmers, -1) @ weight.reshape(num_filters, -1).T + bias
+        kmer_bank_scores[name] = (np.logaddexp(0.0, raw) * gain[None, :]).sum(axis=1)
+    net_sr = kmer_bank_scores["INCL"] - kmer_bank_scores["SKIP"]  # (n_kmers,)
+    sr_med = float(np.median(net_sr))
+    sr_min, sr_max = float(net_sr.min()), float(net_sr.max())
+
+    model_panels = []
+    for side, extreme, sign in (("INCL", sr_max, 1.0), ("SKIP", sr_min, -1.0)):
+        span = sign * (extreme - sr_med)  # distance from the median to this extreme
+        if span > 0:
+            # Fraction of the way from the median to this side's extreme; 1.0 exactly at
+            # the extreme itself, so it always passes at any frac <= 1.
+            score = sign * (net_sr - sr_med) / span
+            sel = np.flatnonzero(score >= args.model_logo_frac)
+            sel = sel[np.argsort(-score[sel])]  # strongest-first
+        else:
+            # A flat side (every k-mer at or beyond the median scores the same) has
+            # nothing to rank, so the panel is left empty rather than dividing by zero.
+            sel = np.array([], dtype=np.int64)
+        panel = {
+            "side": side,
+            "cutoff": sr_med + sign * args.model_logo_frac * span,
+            "n_sel": int(len(sel)),
+            "heights": None,
+            "consensus": None,
+            "best_kmer": all_seqs[sel[0]] if len(sel) else None,
+            "best_score": float(net_sr[sel[0]]) if len(sel) else None,
+        }
+        if len(sel):
+            panel["heights"], panel["consensus"] = model_score_logo(
+                onehot, sel, alphabet, max_bits
+            )
+        model_panels.append(panel)
+        logger.info(
+            f"Whole-model {side}-dominant logo: {panel['n_sel']:,}/{n_kmers:,} k-mers with "
+            f"net SR {'>=' if sign > 0 else '<='} {panel['cutoff']:+.3f}; consensus "
+            f"{panel['consensus'] or '-'}, best {panel['best_kmer'] or '-'}"
+        )
+
+    # One row, INCL-dominant left and SKIP-dominant right. Panel width grows with the
+    # kernel so a k=8 logo keeps readable letters, with a floor wide enough that the
+    # suptitle of a k=1 figure still fits on its lines.
+    panel_w = max(3.4, 0.55 * kernel_size + 1.0)
+    m_header_in, m_panel_in, m_footer_in = 1.25, 2.0, 0.75
+    m_fig_h = m_header_in + m_panel_in + m_footer_in
+    m_fig, m_axes = plt.subplots(
+        1,
+        2,
+        figsize=(2 * panel_w + 0.6, m_fig_h),
+        squeeze=False,
+        gridspec_kw={"wspace": 0.25},
+    )
+    m_fig.subplots_adjust(
+        top=1 - m_header_in / m_fig_h,
+        bottom=m_footer_in / m_fig_h,
+        left=0.08,
+        right=0.97,
+    )
+    for ax, panel in zip(m_axes[0], model_panels):
+        label = (
+            "INCL-dominant (highest net SR)"
+            if panel["side"] == "INCL"
+            else "SKIP-dominant (lowest net SR)"
+        )
+        relation = ">=" if panel["side"] == "INCL" else "<="
+        if panel["heights"] is None:
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title(f"{label}\nno k-mers selected", fontsize=8)
+            continue
+        df = pd.DataFrame(panel["heights"].T, columns=letters)
+        logomaker.Logo(df, ax=ax, color_scheme=LOGO_COLOR_SCHEME[alphabet])
+        ax.set_ylim(0, max_bits)  # same bit scale as the per-filter logos
+        ax.set_ylabel("bits", fontsize=7)
+        ax.set_title(
+            f"{label}\n"
+            f"net SR {relation} {panel['cutoff']:+.2f}   n={panel['n_sel']:,}/{n_kmers:,}\n"
+            f"consensus {panel['consensus']}   best {panel['best_kmer']} "
+            f"({panel['best_score']:+.2f})",
+            fontsize=8,
+        )
+        ax.set_xticks(range(kernel_size))
+        ax.set_xticklabels(range(1, kernel_size + 1), fontsize=7)
+        ax.tick_params(axis="y", labelsize=7)
+
+    m_fig.suptitle(
+        "Whole-model information-content (bits) logos\n"
+        f"net SR = sum softplus(INCL) - sum softplus(SKIP) over {num_filters}+{num_filters} "
+        f"filters{', gain-scaled' if gains else ''}, on all {n_kmers:,} {kernel_size}-mers "
+        f"over {'/'.join(letters)}\n"
+        f"median {sr_med:+.2f}, range [{sr_min:+.2f}, {sr_max:+.2f}]; kept >= "
+        f"{args.model_logo_frac:g} of the way from the median to the max / min; "
+        f"max {max_bits:g} bit{'s' if max_bits != 1 else ''}",
+        y=1 - 0.08 * m_header_in / m_fig_h,
+        va="top",
+        fontsize=9,
+    )
+    m_fig.text(
+        0.5,
+        0.35 * m_footer_in / m_fig_h,
+        caption,
+        ha="center",
+        va="center",
+        fontsize=6,
+        wrap=True,
+    )
+    m_fig.savefig(args.model_logos, dpi=150, bbox_inches="tight")
+    plt.close(m_fig)
+    logger.info(f"Wrote whole-model logos to {args.model_logos}")
+
     # ── Sidecar JSON: the full stamped metadata plus provenance (source checkpoint,
     # the figures/text this run produced, and a timestamp), written next to the plots
     # so the run is machine-readable and travels with the images. ──
@@ -877,9 +1121,11 @@ def main():
             "heatmap_png": os.path.abspath(args.out),
             "logos_png": os.path.abspath(args.logos),
             "real_logos_png": os.path.abspath(args.real_logos) if have_real else None,
+            "model_logos_png": os.path.abspath(args.model_logos),
             "filter_txt": os.path.abspath(args.txt),
             "logo_activation_frac": args.logo_activation_frac,
             "min_contribution_frac": args.min_contribution_frac,
+            "model_logo_frac": args.model_logo_frac,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
         },
         # Learned per-filter gains, keyed by bank -> filter_idx, or None for
@@ -905,7 +1151,7 @@ def main():
                     name: {d["filter_idx"]: d["n_real"] for d in filter_logos[name]}
                     for name, _ in convs
                 },
-                # Consensus of each filter's real-data logo: argmax base per position
+                # Consensus of each filter's real-data logo: argmax letter per position
                 # over the firing windows (None for a filter no real window fires).
                 "consensus": {
                     name: {
@@ -917,6 +1163,25 @@ def main():
             if have_real
             else None
         ),
+        # Whole-model logos: the net-SR distribution over every enumerated k-mer and, per
+        # side, the score cutoff, how many k-mers passed it, and the logo's consensus.
+        "model_logos": {
+            "frac": args.model_logo_frac,
+            "n_kmers": n_kmers,
+            "net_sr_median": sr_med,
+            "net_sr_min": sr_min,
+            "net_sr_max": sr_max,
+            "panels": {
+                p["side"]: {
+                    "cutoff": p["cutoff"],
+                    "n_selected": p["n_sel"],
+                    "consensus": p["consensus"],
+                    "best_kmer": p["best_kmer"],
+                    "best_score": p["best_score"],
+                }
+                for p in model_panels
+            },
+        },
     }
     with open(meta_out, "w") as fh:
         json.dump(sidecar, fh, indent=2, default=str)

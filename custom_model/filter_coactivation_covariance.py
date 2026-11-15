@@ -121,7 +121,7 @@ import torch
 import torch.nn.functional as F
 
 from custom_model import PNASModel
-from custom_utils import str_to_vector
+from custom_utils import encode_sequence, resolve_alphabet, str_to_vector
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -234,13 +234,25 @@ def main():
     # shape mismatch even at strict=False, so the architecture has to be read off the
     # weights first; it then drives the labels, the block slicing and the k-mer
     # enumeration below, none of which are correct at a fixed 20/6.
-    num_filters, _, kernel_size = sd["conv_incl.weight"].shape
-    model = PNASModel(num_filters=num_filters, kernel_size=kernel_size).to(device)
+    # The middle dimension is the input alphabet's width — 4 for an A/C/G/T checkpoint,
+    # 2 for a purine/pyrimidine one (pipeline/run_pipeline_ry.py) — and it drives the
+    # one-hot basis, the random-sequence sampling and the k-mer enumeration below.
+    num_filters, n_chan, kernel_size = sd["conv_incl.weight"].shape
+    # A bare state_dict (no "metadata") is accepted here as elsewhere in this script, so
+    # the stamped name is looked up defensively; the channel count alone is enough.
+    ckpt_meta = ckpt.get("metadata") or {} if isinstance(ckpt, dict) else {}
+    alphabet_name, alphabet = resolve_alphabet(
+        n_chan, ckpt_meta.get("hparams", {}).get("alphabet")
+    )
+    model = PNASModel(
+        seq_in_channels=n_chan, num_filters=num_filters, kernel_size=kernel_size
+    ).to(device)
     model.load_partial_state_dict(sd)
     model.eval()
     logger.info(
         f"Checkpoint architecture: {num_filters}+{num_filters} incl/skip filters, "
-        f"{kernel_size}-nt kernel -> {2 * num_filters} correlated channels, "
+        f"{kernel_size}-nt kernel over {n_chan} {'/'.join(alphabet)} channel(s) -> "
+        f"{2 * num_filters} correlated channels, "
         f"{2 * num_filters * (2 * num_filters - 1) // 2} pairs."
     )
 
@@ -295,31 +307,39 @@ def main():
         # marginalized out instead of being scored as unrelatedness.
         L, n_samples = args.pool_length, args.n_samples
         rng = np.random.default_rng(args.seed)
-        eye = np.eye(4, dtype=np.float32)
+        # One-hot basis over the checkpoint's own alphabet, so the integer codes below
+        # index the same channels the filters were trained on.
+        eye = np.eye(n_chan, dtype=np.float32)
 
         if args.weighting == "uniform":
-            codes = rng.integers(0, 4, size=(n_samples, L))
-            logger.info(f"Sampling {n_samples:,} uniform random {L}-mers on {device}.")
+            codes = rng.integers(0, n_chan, size=(n_samples, L))
+            logger.info(
+                f"Sampling {n_samples:,} uniform random {L}-mers over "
+                f"{'/'.join(alphabet)} on {device}."
+            )
         else:
             # Both remaining rungs need the alignment's own sequence. Reuse
-            # str_to_vector for its character validation, then collapse the
-            # one-hot back to integer codes (ACGT order, as everywhere else).
+            # encode_sequence for its character validation and its alphabet
+            # translation, then collapse the one-hot back to integer codes (channel
+            # order, as everywhere else).
             matrix = np.load(args.matrix)
             per_species = []
             for j in range(matrix.shape[1]):
                 row = matrix[:, j]
                 seq = "".join(row[(row != "-") & (row != "N")]).upper()
-                per_species.append(str_to_vector(seq).argmax(0).astype(np.int64))
+                per_species.append(
+                    encode_sequence(seq, alphabet_name).argmax(0).astype(np.int64)
+                )
 
             if args.weighting == "composition":
                 base_counts = np.bincount(
-                    np.concatenate(per_species), minlength=4
+                    np.concatenate(per_species), minlength=n_chan
                 ).astype(np.float64)
                 p_base = base_counts / base_counts.sum()
-                codes = rng.choice(4, size=(n_samples, L), p=p_base)
+                codes = rng.choice(n_chan, size=(n_samples, L), p=p_base)
                 logger.info(
                     f"Sampling {n_samples:,} {L}-mers at alignment composition "
-                    "A/C/G/T = "
+                    f"{'/'.join(alphabet)} = "
                     + ", ".join(f"{p:.4f}" for p in p_base)
                     + f" on {device}."
                 )
@@ -356,7 +376,7 @@ def main():
                 chunk = codes[start : start + POOL_BATCH]
                 x = torch.from_numpy(eye[chunk].transpose(0, 2, 1).copy()).to(
                     device
-                )  # (b, 4, L)
+                )  # (b, n_chan, L)
                 a_incl = F.softplus(model.conv_incl(x)).sum(-1)  # (b, F), >= 0
                 a_skip = F.softplus(model.conv_skip(x)).sum(-1)  # (b, F), >= 0
                 X[start : start + len(chunk)] = (
@@ -372,39 +392,50 @@ def main():
     elif args.kmer_space:
         # ── Exhaustive k-mer enumeration ─────────────────────────────────────
         # The kernel spans the whole window on one-hot input, so a window's
-        # activation depends only on that window's k-mer: 4**kernel_size rows
-        # cover the whole input space (4096 at the default kernel 6).
-        kmers = ["".join(p) for p in itertools.product("ACGT", repeat=kernel_size)]
+        # activation depends only on that window's k-mer: |A|**kernel_size rows
+        # cover the whole input space (4096 at the default kernel 6 over A/C/G/T,
+        # 64 over R/Y). The k-mers are strings over the checkpoint's alphabet, so an
+        # R/Y run enumerates RY strings and is encoded without further translation.
+        kmers = ["".join(p) for p in itertools.product(alphabet, repeat=kernel_size)]
         logger.info(
-            f"Enumerating all {len(kmers)} {kernel_size}-mers on {device}; "
-            f"weighting={args.weighting}."
+            f"Enumerating all {len(kmers)} {kernel_size}-mers over "
+            f"{'/'.join(alphabet)} on {device}; weighting={args.weighting}."
         )
         with torch.no_grad():
             x = torch.tensor(
-                np.stack([str_to_vector(k) for k in kmers]),
+                np.stack([str_to_vector(k, alphabet) for k in kmers]),
                 dtype=torch.float32,
                 device=device,
-            )  # (4**K, 4, K)
-            a_incl = F.softplus(model.conv_incl(x))  # (4**K, F, 1), >= 0
-            a_skip = F.softplus(model.conv_skip(x))  # (4**K, F, 1), >= 0
-            # -> (4**K, 2F): k-mers are rows, incl then skip filters are columns.
+            )  # (|A|**K, n_chan, K)
+            a_incl = F.softplus(model.conv_incl(x))  # (|A|**K, F, 1), >= 0
+            a_skip = F.softplus(model.conv_skip(x))  # (|A|**K, F, 1), >= 0
+            # -> (|A|**K, 2F): k-mers are rows, incl then skip filters are columns.
             X = torch.cat([a_incl, a_skip], dim=1).squeeze(-1).cpu().numpy()
         X = X.astype(np.float64)
 
         if args.weighting == "uniform":
             weights = np.ones(len(kmers), dtype=np.float64)
         else:
-            # Both remaining rungs need the alignment's observed composition.
+            # Both remaining rungs need the alignment's observed composition. The
+            # enumerated k-mers are in the checkpoint's alphabet, so the alignment has
+            # to be translated into it before either count: on an R/Y checkpoint the
+            # raw "ACGTAC" window is not a key in kmer_index, and counting raw bases
+            # would tally letters the model never sees.
             matrix = np.load(args.matrix)
             kmer_index = {k: i for i, k in enumerate(kmers)}
             counts = np.zeros(len(kmers), dtype=np.float64)
-            base_counts = np.zeros(4, dtype=np.float64)
+            base_counts = np.zeros(n_chan, dtype=np.float64)
             n_windows = 0
             for j in range(matrix.shape[1]):
                 row = matrix[:, j]
-                seq = "".join(row[(row != "-") & (row != "N")]).upper()
-                for b, base in enumerate("ACGT"):
-                    base_counts[b] += seq.count(base)
+                raw = "".join(row[(row != "-") & (row != "N")]).upper()
+                # argmax over the one-hot recovers the channel index per position; the
+                # alphabet's letters then spell the sequence in alphabet space.
+                seq = "".join(
+                    alphabet[c] for c in encode_sequence(raw, alphabet_name).argmax(0)
+                )
+                for b, letter in enumerate(alphabet):
+                    base_counts[b] += seq.count(letter)
                 for p in range(len(seq) - kernel_size + 1):
                     h = kmer_index.get(seq[p : p + kernel_size])
                     if h is not None:
@@ -416,15 +447,15 @@ def main():
                     f"Weighting by {n_windows:,} observed windows; "
                     f"{int((counts > 0).sum())}/{len(kmers)} {kernel_size}-mers present."
                 )
-            else:  # composition: independent bases at alignment frequencies
+            else:  # composition: independent letters at alignment frequencies
                 p_base = base_counts / base_counts.sum()
                 weights = np.ones(len(kmers), dtype=np.float64)
                 for pos in range(kernel_size):
                     weights *= np.array(
-                        [p_base["ACGT".index(k[pos])] for k in kmers]
+                        [p_base[alphabet.index(k[pos])] for k in kmers]
                     )
                 logger.info(
-                    "Weighting by mononucleotide composition A/C/G/T = "
+                    f"Weighting by mono-letter composition {'/'.join(alphabet)} = "
                     + ", ".join(f"{p:.4f}" for p in p_base)
                 )
     else:
@@ -464,8 +495,12 @@ def main():
                 row = matrix[:, j]
                 is_nuc = (row != "-") & (row != "N")
                 seq = "".join(row[is_nuc]).upper()
-                x = torch.tensor(str_to_vector(seq), dtype=torch.float32, device=device)
-                x = x.unsqueeze(0)  # (1, 4, Lj)
+                x = torch.tensor(
+                    encode_sequence(seq, alphabet_name),
+                    dtype=torch.float32,
+                    device=device,
+                )
+                x = x.unsqueeze(0)  # (1, n_chan, Lj)
                 a_incl = F.softplus(model.conv_incl(x))  # (1, F, Lj-K+1), >= 0
                 a_skip = F.softplus(model.conv_skip(x))  # (1, F, Lj-K+1), >= 0
                 act = torch.cat([a_incl, a_skip], dim=1)  # (1, 2F, Lj-K+1)

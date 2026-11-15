@@ -20,6 +20,24 @@ DEFAULT_SEQUENCE_COLUMN = "exon"
 RNA_ALPHABET = "ACGU"
 DNA_ALPHABET = "ACGT"
 STRUCTURE_ALPHABET = ".()"
+# Purine/pyrimidine alphabet: the 4 bases collapsed to 2 classes, so a model trained
+# on it can only see the class at each position, never the base identity within it.
+RY_ALPHABET = "RY"
+RY_TRANSLATION = str.maketrans("ACGT", "RYRY")  # A,G -> R (purine); C,T -> Y (pyrimidine)
+# Base identity with the C and G channels swapped. Not a different encoding of the
+# sequence, only a different channel order, and it exists solely as a control
+# (pipeline/run_pipeline_agct.py): a filter-bank property that follows the letters moves
+# to different channel slots under this order, one produced by the slots does not.
+AGCT_ALPHABET = "AGCT"
+# The sequence alphabets a model can be trained on, keyed by the name that travels in a
+# checkpoint's hparams and in a run manifest.
+ALPHABETS = {"acgt": DNA_ALPHABET, "ry": RY_ALPHABET, "agct": AGCT_ALPHABET}
+# Reverse lookup for a checkpoint that predates the hparams key: the conv's in_channels
+# is enough to name the alphabet, because the two differ in width. Built from the
+# canonical alphabets only — "agct" is as wide as "acgt", so a comprehension over every
+# entry would let it claim width 4 and relabel every unstamped A/C/G/T checkpoint.
+# Every agct checkpoint is stamped, so it never needs this lookup.
+CHANNELS_TO_ALPHABET = {len(ALPHABETS[name]): name for name in ("acgt", "ry")}
 RNAFOLD_ENERGY_RE = re.compile(r"^([().]+)\s+\(\s*([^)]+?)\s*\)$")
 
 
@@ -76,28 +94,130 @@ def folding_to_vector(structure: str) -> np.ndarray:
     return str_to_vector(structure, STRUCTURE_ALPHABET)
 
 
-def one_hot_batch(seqs: Sequence[str]) -> np.ndarray:
-    """One-hot encode a batch of nucleotide sequences.
+def encode_sequence(sequence: str, alphabet_name: str = "acgt") -> np.ndarray:
+    """One-hot encode a nucleotide sequence in the named sequence alphabet.
 
-    DNA and RNA inputs are both accepted. Any ``U`` characters are normalized to
-    ``T`` before encoding because the model sequence channels are DNA-based.
+    ``"acgt"`` is the 4-channel base identity encoding every model used before the
+    purine/pyrimidine experiment. ``"ry"`` collapses the bases to 2 channels by
+    translating A/G to R and C/T to Y first, so the encoding retains only which class
+    occupies each position. ``"agct"`` is base identity with the C and G channels
+    swapped; it needs no translation, since the alphabet's letter order alone sets it.
 
     Args:
-        seqs: Batch of nucleotide sequences.
+        sequence: Nucleotide sequence, gaps already removed. Case-insensitive.
+        alphabet_name: Key into :data:`ALPHABETS` (``"acgt"``, ``"ry"`` or ``"agct"``).
 
     Returns:
-        A NumPy array with shape ``(batch_size, 4, sequence_length)``.
+        A NumPy array with shape ``(len(ALPHABETS[alphabet_name]), len(sequence))``:
+        ``(4, L)`` for ``"acgt"`` and ``"agct"``, ``(2, L)`` for ``"ry"``.
+
+    Raises:
+        KeyError: If ``alphabet_name`` is not a known alphabet.
+        ValueError: If the sequence holds characters outside A/C/G/T.
+    """
+    alphabet = ALPHABETS[alphabet_name]
+    sequence = sequence.upper()
+    if alphabet_name == "ry":
+        # Translate before encoding rather than after, so str_to_vector's character
+        # validation still rejects anything that is not a base (an unstripped gap or
+        # IUPAC code passes through translate() untouched and raises there).
+        sequence = sequence.translate(RY_TRANSLATION)
+    return str_to_vector(sequence, alphabet)
+
+
+def resolve_alphabet(n_channels: int, alphabet_name: str | None = None) -> tuple[str, str]:
+    """Name and letters of the alphabet a checkpoint was trained on.
+
+    A plotter knows a checkpoint's channel count from ``conv_incl.weight`` but needs the
+    letters to label an axis or build a logo. Checkpoints written since the R/Y work
+    stamp ``hparams["alphabet"]``; the ones before it do not, and for those the channel
+    count is unambiguous on its own.
+
+    Args:
+        n_channels: ``conv_incl.weight.shape[1]`` — the model's sequence in-channels.
+        alphabet_name: The checkpoint's stamped alphabet name, when it has one. Takes
+            precedence over the channel count; must agree with it.
+
+    Returns:
+        ``(name, letters)``, e.g. ``("acgt", "ACGT")`` or ``("ry", "RY")``.
+
+    Raises:
+        SystemExit: If the name is unknown, disagrees with the channel count, or the
+            channel count matches no known alphabet.
+    """
+    if alphabet_name is not None:
+        if alphabet_name not in ALPHABETS:
+            raise SystemExit(
+                f"Checkpoint names alphabet {alphabet_name!r}, which is not one of "
+                f"{', '.join(sorted(ALPHABETS))}."
+            )
+        alphabet = ALPHABETS[alphabet_name]
+        if len(alphabet) != n_channels:
+            raise SystemExit(
+                f"Checkpoint names alphabet {alphabet_name!r} ({len(alphabet)} letters) "
+                f"but its filters have {n_channels} input channels."
+            )
+        return alphabet_name, alphabet
+    if n_channels not in CHANNELS_TO_ALPHABET:
+        raise SystemExit(
+            f"Checkpoint has {n_channels} sequence input channels, which matches no "
+            f"known alphabet ("
+            + ", ".join(f"{name}={len(a)}" for name, a in sorted(ALPHABETS.items()))
+            + "), and records no 'alphabet' in its metadata hparams."
+        )
+    name = CHANNELS_TO_ALPHABET[n_channels]
+    return name, ALPHABETS[name]
+
+
+def base_code_map(alphabet_name: str = "acgt") -> dict[str, int]:
+    """Map each nucleotide to its channel index under the named alphabet.
+
+    The one-hot encoding of :func:`encode_sequence` as a lookup table, for consumers
+    that index the channel directly instead of building the matrix — the interactive
+    heatmap's JavaScript convolution does exactly that.
+
+    Args:
+        alphabet_name: Key into :data:`ALPHABETS` (``"acgt"``, ``"ry"`` or ``"agct"``).
+
+    Returns:
+        ``{"A": 0, "C": 1, "G": 2, "T": 3}`` for ``"acgt"``;
+        ``{"A": 0, "G": 0, "C": 1, "T": 1}`` for ``"ry"``;
+        ``{"A": 0, "G": 1, "C": 2, "T": 3}`` for ``"agct"``.
+    """
+    alphabet = ALPHABETS[alphabet_name]
+    if alphabet_name == "ry":
+        return {base: alphabet.index(base.translate(RY_TRANSLATION)) for base in DNA_ALPHABET}
+    return {base: idx for idx, base in enumerate(alphabet)}
+
+
+def one_hot_batch(seqs: Sequence[str], alphabet: str = DNA_ALPHABET) -> np.ndarray:
+    """One-hot encode a batch of equal-length sequences.
+
+    For the default DNA alphabet both DNA and RNA inputs are accepted: any ``U``
+    characters are normalized to ``T`` first, because the model sequence channels are
+    DNA-based. That fold applies only to the DNA alphabet — a batch already translated
+    into another alphabet (R/Y, say) holds no ``U`` to begin with.
+
+    Args:
+        seqs: Batch of sequences, all over ``alphabet``.
+        alphabet: Ordered alphabet used to define the one-hot basis.
+
+    Returns:
+        A NumPy array with shape ``(batch_size, len(alphabet), sequence_length)``.
 
     Raises:
         ValueError: If the sequences do not all share the same length.
     """
-    seqs = [seq.upper().replace("U", "T") for seq in seqs]
+    if alphabet == DNA_ALPHABET:
+        seqs = [seq.upper().replace("U", "T") for seq in seqs]
+    else:
+        seqs = [seq.upper() for seq in seqs]
     lengths = {len(seq) for seq in seqs}
     if len(lengths) > 1:
         raise ValueError("All sequences must have the same length for batching.")
 
     return np.asarray(
-        [str_to_vector(seq, DNA_ALPHABET) for seq in seqs], dtype=np.float32
+        [str_to_vector(seq, alphabet) for seq in seqs], dtype=np.float32
     )
 
 
@@ -618,22 +738,29 @@ def create_input_data(
 
 
 __all__ = [
+    "ALPHABETS",
+    "CHANNELS_TO_ALPHABET",
     "DEFAULT_SEQUENCE_COLUMN",
     "LEFT_FLANK",
     "RIGHT_FLANK",
     "RNAfold",
+    "RY_ALPHABET",
+    "RY_TRANSLATION",
     "add_flanking",
+    "base_code_map",
     "compute_bijection",
     "compute_structure",
     "compute_wobble_indicator",
     "compute_wobbles",
     "create_input_data",
     "dataframe_to_dataset",
+    "encode_sequence",
     "find_parentheses",
     "folding_to_vector",
     "generate_random_exon",
     "make_dataset_dict",
     "one_hot_batch",
+    "resolve_alphabet",
     "rna_fold_structs",
     "rnafold_available",
     "save_dataset_npz",
